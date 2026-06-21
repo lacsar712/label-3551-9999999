@@ -1,5 +1,6 @@
 from django import forms
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack
+from django.forms import inlineformset_factory
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -195,3 +196,48 @@ class SafetyInspectionUpdateForm(forms.ModelForm):
             'rectification_deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'site_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
+
+
+class VoteForm(forms.ModelForm):
+    class Meta:
+        model = Vote
+        fields = ['title', 'description', 'start_time', 'end_time', 'allow_multiple', 'is_anonymous']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入投票议题'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入投票说明（可选）'}),
+            'start_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'end_time': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'allow_multiple': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_anonymous': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+        if start_time and end_time and end_time <= start_time:
+            raise forms.ValidationError("结束时间必须晚于开始时间")
+        return cleaned_data
+
+
+class VoteOptionForm(forms.ModelForm):
+    class Meta:
+        model = VoteOption
+        fields = ['content']
+        widgets = {
+            'content': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入选项内容'}),
+        }
+
+    def clean_content(self):
+        content = self.cleaned_data.get('content')
+        if content:
+            content = content.strip()
+            if not content:
+                raise forms.ValidationError("选项内容不能为空")
+        return content
+
+
+VoteOptionFormSet = inlineformset_factory(
+    Vote, VoteOption, form=VoteOptionForm,
+    extra=2, min_num=2, validate_min=True, can_delete=True
+)

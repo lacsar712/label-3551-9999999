@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">投票议题 <span class="text-danger">*</span></label>
+                <div class="col-sm-10">
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                    <div class="text-danger small mt-1">{{ form.title.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">投票说明</label>
+                <div class="col-sm-10">
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">开始时间 <span class="text-danger">*</span></label>
+                <div class="col-sm-10">
+                    {{ form.start_time }}
+                    {% if form.start_time.errors %}
+                    <div class="text-danger small mt-1">{{ form.start_time.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">结束时间 <span class="text-danger">*</span></label>
+                <div class="col-sm-10">
+                    {{ form.end_time }}
+                    {% if form.end_time.errors %}
+                    <div class="text-danger small mt-1">{{ form.end_time.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">投票选项</label>
+                <div class="col-sm-10">
+                    <div id="options-formset">
+                        {{ option_formset.management_form }}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
+                        {% if option_formset.non_form_errors %}
+                        <div class="alert alert-danger">{{ option_formset.non_form_errors }}</div>
+                        {% endif %}
+                        {% for opt_form in option_formset %}
+                        <div class="input-group mb-2 option-row">
+                            {{ opt_form.id }}
+                            <span class="input-group-text">选项 {{ forloop.counter }}</span>
+                            {{ opt_form.content }}
+                            {% if opt_form.DELETE %}
+                            {{ opt_form.DELETE }}
+                            {% endif %}
+                            {% if opt_form.errors %}
+                            <div class="text-danger small">{{ opt_form.errors }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" id="add-option-btn" class="btn btn-sm btn-outline-primary mt-1">+ 添加选项</button>
+                    <small class="text-muted ms-2">至少需要两个选项</small>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <label class="col-sm-2 col-form-label fw-bold">投票设置</label>
+                <div class="col-sm-10">
+                    <div class="form-check mb-2">
+                        {{ form.allow_multiple }}
+                        <label class="form-check-label" for="{{ form.allow_multiple.id_for_label }}">允许多选</label>
+                    </div>
+                    <div class="form-check">
+                        {{ form.is_anonymous }}
+                        <label class="form-check-label" for="{{ form.is_anonymous.id_for_label }}">匿名计票</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-10 offset-sm-2">
+                    <button type="submit" class="btn btn-primary">确认发起</button>
+                    <a href="{% url 'vote_list' %}" class="btn btn-outline-secondary ms-2">取消</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const addBtn = document.getElementById('add-option-btn');
+    const container = document.getElementById('options-formset');
+    const totalForms = document.getElementById('id_options-TOTAL_FORMS');
+
+    addBtn.addEventListener('click', function() {
+        const currentCount = parseInt(totalForms.value);
+        const newRow = document.createElement('div');
+        newRow.className = 'input-group mb-2 option-row';
+        newRow.innerHTML =
+            '<input type="hidden" name="options-' + currentCount + '-id" id="id_options-' + currentCount + '-id">' +
+            '<span class="input-group-text">选项 ' + (currentCount + 1) + '</span>' +
+            '<input type="text" name="options-' + currentCount + '-content" maxlength="200" class="form-control" placeholder="请输入选项内容" id="id_options-' + currentCount + '-content">';
+        const deleteField = document.getElementById('id_options-0-DELETE');
+        if (deleteField) {
+            newRow.innerHTML += '<input type="checkbox" name="options-' + currentCount + '-DELETE" id="id_options-' + currentCount + '-DELETE" class="d-none">';
+        }
+        container.appendChild(newRow);
+        totalForms.value = currentCount + 1;
+    });
+})();
+</script>
+{% endblock %}

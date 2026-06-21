@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}投票管理 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">投票管理</h1>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <a href="{% url 'vote_add' %}" class="btn btn-primary">发起投票</a>
+    {% endif %}
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <label class="form-label mb-0 small">状态筛选：</label>
+            </div>
+            <div class="col-auto">
+                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>编号</th>
+                    <th>投票议题</th>
+                    <th>开始时间</th>
+                    <th>结束时间</th>
+                    <th>状态</th>
+                    <th>投票方式</th>
+                    <th>参与人数</th>
+                    {% if request.user.role == 'owner' %}
+                    <th>我的状态</th>
+                    {% endif %}
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vote in votes %}
+                <tr>
+                    <td><span class="fw-bold">#{{ vote.id }}</span></td>
+                    <td>{{ vote.title }}</td>
+                    <td>{{ vote.start_time|date:"Y-m-d H:i" }}</td>
+                    <td>{{ vote.end_time|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if vote.status == 'pending' %}
+                        <span class="badge bg-secondary">未开始</span>
+                        {% elif vote.status == 'active' %}
+                        <span class="badge bg-success">进行中</span>
+                        {% else %}
+                        <span class="badge bg-dark">已结束</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if vote.allow_multiple %}
+                        <span class="badge bg-info text-dark">多选</span>
+                        {% else %}
+                        <span class="badge bg-light text-dark">单选</span>
+                        {% endif %}
+                        {% if vote.is_anonymous %}
+                        <span class="badge bg-warning text-dark">匿名</span>
+                        {% else %}
+                        <span class="badge bg-light text-dark">实名</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ vote.total_votes }}</td>
+                    {% if request.user.role == 'owner' %}
+                    <td>
+                        {% if vote.user_has_voted %}
+                        <span class="badge bg-success">已参与</span>
+                        {% elif vote.status == 'active' %}
+                        <span class="badge bg-danger">未参与</span>
+                        {% else %}
+                        <span class="badge bg-secondary">-</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        <a href="{% url 'vote_detail' vote.id %}" class="btn btn-sm btn-outline-info">详情</a>
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                        <a href="{% url 'vote_delete' vote.id %}" class="btn btn-sm btn-outline-danger">删除</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if request.user.role == 'owner' %}9{% else %}8{% endif %}" class="text-center text-muted py-3">暂无投票记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

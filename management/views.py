@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -59,6 +59,7 @@ class IndexView(LoginRequiredMixin, TemplateView):
             context['my_units'] = Unit.objects.filter(owner=self.request.user)
             context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
             context['unpaid_fees'] = Fee.objects.filter(unit__owner=self.request.user, status='unpaid')
+            context['active_unvoted'] = Vote.objects.filter(status='active').exclude(voter_records__voter=self.request.user)
         return context
 
 # --- 楼盘管理 ---
@@ -805,4 +806,147 @@ class SafetyInspectionDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteV
 
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, "隐患排查记录删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+class VoteListView(LoginRequiredMixin, ListView):
+    model = Vote
+    template_name = 'management/vote_list.html'
+    context_object_name = 'votes'
+
+    def get_queryset(self):
+        qs = Vote.objects.all()
+        if self.request.user.role == 'owner':
+            qs = qs.filter(status__in=['active', 'closed'])
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['statuses'] = Vote.STATUS_CHOICES
+        context['current_status'] = self.request.GET.get('status', '')
+        if self.request.user.role == 'owner':
+            for vote in context['votes']:
+                vote.user_has_voted = vote.has_voted(self.request.user)
+        return context
+
+
+class VoteCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = Vote
+    form_class = VoteForm
+    template_name = 'management/vote_form.html'
+    success_url = reverse_lazy('vote_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['option_formset'] = VoteOptionFormSet(self.request.POST)
+        else:
+            context['option_formset'] = VoteOptionFormSet()
+        context['title'] = "发起社区投票"
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        context = self.get_context_data()
+        option_formset = context['option_formset']
+        if option_formset.is_valid():
+            self.object = form.save()
+            option_formset.instance = self.object
+            option_formset.save()
+            messages.success(self.request, "社区投票发起成功！")
+            return redirect(self.success_url)
+        else:
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class VoteDetailView(LoginRequiredMixin, DetailView):
+    model = Vote
+    template_name = 'management/vote_detail.html'
+    context_object_name = 'vote'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        vote = context['vote']
+        from django.utils import timezone
+        now = timezone.now()
+        if vote.status == 'pending' and now >= vote.start_time:
+            vote.status = 'active'
+            vote.save(update_fields=['status'])
+        elif vote.status == 'active' and now >= vote.end_time:
+            vote.status = 'closed'
+            vote.save(update_fields=['status'])
+        options = vote.options.all()
+        total_votes = vote.total_votes()
+        option_stats = []
+        for opt in options:
+            count = opt.vote_count()
+            pct = opt.vote_percentage()
+            option_stats.append({
+                'option': opt,
+                'count': count,
+                'percentage': pct,
+            })
+        context['option_stats'] = option_stats
+        context['total_votes'] = total_votes
+        context['can_vote'] = (
+            self.request.user.role == 'owner'
+            and vote.status == 'active'
+            and not vote.has_voted(self.request.user)
+        )
+        context['has_voted'] = vote.has_voted(self.request.user)
+        context['is_closed'] = vote.status == 'closed'
+        context['show_voter_info'] = not vote.is_anonymous or self.request.user.role in ['admin', 'staff']
+        return context
+
+
+class VoteSubmitView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        vote = get_object_or_404(Vote, pk=pk)
+        if vote.status != 'active':
+            messages.error(request, "该投票不在进行中，无法投票！")
+            return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+        if vote.has_voted(request.user):
+            messages.error(request, "您已经参与过该投票！")
+            return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+        if request.user.role != 'owner':
+            messages.error(request, "仅业主可以参与投票！")
+            return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+
+        selected_options = request.POST.getlist('options')
+        if not selected_options:
+            messages.error(request, "请至少选择一个选项！")
+            return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+        if not vote.allow_multiple and len(selected_options) > 1:
+            messages.error(request, "该投票不允许多选！")
+            return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+
+        valid_option_ids = set(vote.options.values_list('id', flat=True))
+        for opt_id in selected_options:
+            opt_id_int = int(opt_id)
+            if opt_id_int not in valid_option_ids:
+                messages.error(request, "无效的投票选项！")
+                return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+
+        voter = None if vote.is_anonymous else request.user
+        for opt_id in selected_options:
+            option = VoteOption.objects.get(pk=opt_id)
+            VoteBallot.objects.create(vote=vote, option=option, voter=voter)
+        VoteRecord.objects.create(vote=vote, voter=request.user)
+        messages.success(request, "投票提交成功！")
+        return redirect(reverse('vote_detail', kwargs={'pk': pk}))
+
+
+class VoteDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = Vote
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('vote_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "投票删除成功！")
         return super().delete(request, *args, **kwargs)

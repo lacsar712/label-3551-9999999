@@ -328,3 +328,80 @@ class SafetyInspectionTrack(models.Model):
 
     def __str__(self):
         return f"{self.inspection.id} - {self.get_action_display()} - {self.created_at}"
+
+
+class Vote(models.Model):
+    STATUS_CHOICES = (
+        ('pending', '未开始'),
+        ('active', '进行中'),
+        ('closed', '已结束'),
+    )
+
+    title = models.CharField("投票议题", max_length=200)
+    description = models.TextField("投票说明", blank=True, null=True)
+    start_time = models.DateTimeField("开始时间")
+    end_time = models.DateTimeField("结束时间")
+    allow_multiple = models.BooleanField("允许多选", default=False)
+    is_anonymous = models.BooleanField("匿名计票", default=False)
+    status = models.CharField("投票状态", max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="发起人", related_name="created_votes", limit_choices_to={'role__in': ['admin', 'staff']})
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "社区投票"
+        verbose_name_plural = "投票管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"投票 #{self.id} - {self.title}"
+
+    def total_votes(self):
+        return self.voter_records.count()
+
+    def has_voted(self, user):
+        return self.voter_records.filter(voter=user).exists()
+
+
+class VoteOption(models.Model):
+    vote = models.ForeignKey(Vote, on_delete=models.CASCADE, verbose_name="所属投票", related_name="options")
+    content = models.CharField("选项内容", max_length=200)
+
+    class Meta:
+        verbose_name = "投票选项"
+        verbose_name_plural = "投票选项"
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.vote.title} - {self.content}"
+
+    def vote_count(self):
+        return self.ballots.count()
+
+    def vote_percentage(self):
+        total = self.vote.total_votes()
+        if total == 0:
+            return 0
+        return round(self.vote_count() / total * 100, 1)
+
+
+class VoteBallot(models.Model):
+    vote = models.ForeignKey(Vote, on_delete=models.CASCADE, verbose_name="所属投票", related_name="ballot_records")
+    option = models.ForeignKey(VoteOption, on_delete=models.CASCADE, verbose_name="所选选项", related_name="ballots")
+    voter = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="投票人", related_name="cast_ballots", null=True, blank=True)
+    created_at = models.DateTimeField("投票时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "投票记录"
+        verbose_name_plural = "投票记录"
+
+
+class VoteRecord(models.Model):
+    vote = models.ForeignKey(Vote, on_delete=models.CASCADE, verbose_name="所属投票", related_name="voter_records")
+    voter = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="投票业主", related_name="vote_participations")
+    voted_at = models.DateTimeField("投票时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "业主投票参与记录"
+        verbose_name_plural = "业主投票参与记录"
+        unique_together = ['vote', 'voter']

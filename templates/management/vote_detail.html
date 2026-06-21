@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vote.title }} - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">投票详情</h1>
+    <a href="{% url 'vote_list' %}" class="btn btn-outline-secondary">返回列表</a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">{{ vote.title }}</h4>
+        {% if vote.status == 'pending' %}
+        <span class="badge bg-secondary fs-6">未开始</span>
+        {% elif vote.status == 'active' %}
+        <span class="badge bg-success fs-6">进行中</span>
+        {% else %}
+        <span class="badge bg-dark fs-6">已结束</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        {% if vote.description %}
+        <p class="text-muted mb-3">{{ vote.description }}</p>
+        {% endif %}
+        <div class="row mb-2">
+            <div class="col-md-6">
+                <small class="text-muted">投票时间：</small>
+                <span>{{ vote.start_time|date:"Y-m-d H:i" }} ~ {{ vote.end_time|date:"Y-m-d H:i" }}</span>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">投票方式：</small>
+                {% if vote.allow_multiple %}
+                <span class="badge bg-info text-dark">多选</span>
+                {% else %}
+                <span class="badge bg-light text-dark border">单选</span>
+                {% endif %}
+                {% if vote.is_anonymous %}
+                <span class="badge bg-warning text-dark">匿名计票</span>
+                {% else %}
+                <span class="badge bg-light text-dark border">实名计票</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <small class="text-muted">发起人：</small>
+                <span>{{ vote.created_by|default:"系统" }}</span>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">参与人数：</small>
+                <span class="fw-bold">{{ total_votes }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if can_vote %}
+<div class="card shadow-sm mb-4 border-primary">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">请投票</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'vote_submit' vote.id %}">
+            {% csrf_token %}
+            {% for stat in option_stats %}
+            <div class="form-check mb-3 fs-5">
+                {% if vote.allow_multiple %}
+                <input class="form-check-input" type="checkbox" name="options" value="{{ stat.option.id }}" id="opt-{{ stat.option.id }}">
+                {% else %}
+                <input class="form-check-input" type="radio" name="options" value="{{ stat.option.id }}" id="opt-{{ stat.option.id }}">
+                {% endif %}
+                <label class="form-check-label" for="opt-{{ stat.option.id }}">{{ stat.option.content }}</label>
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary mt-2">提交投票</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">投票结果</h5>
+    </div>
+    <div class="card-body">
+        {% if has_voted or is_closed or request.user.role in 'admin,staff' %}
+        {% for stat in option_stats %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold">{{ stat.option.content }}</span>
+                <span>
+                    <span class="text-primary fw-bold">{{ stat.count }}</span> 票
+                    <span class="text-muted ms-2">({{ stat.percentage }}%)</span>
+                </span>
+            </div>
+            <div class="progress" style="height: 24px;">
+                <div class="progress-bar {% if forloop.first %}bg-primary{% elif forloop.counter == 2 %}bg-success{% else %}bg-info{% endif %}"
+                     role="progressbar"
+                     style="width: {{ stat.percentage }}%"
+                     aria-valuenow="{{ stat.percentage }}"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                    {% if stat.percentage > 10 %}{{ stat.percentage }}%{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <hr>
+        <p class="text-muted mb-0">共 <strong>{{ total_votes }}</strong> 人参与投票</p>
+        {% elif vote.status == 'active' and not has_voted %}
+        <p class="text-muted text-center py-3">投票结果在您提交投票后可见</p>
+        {% elif vote.status == 'pending' %}
+        <p class="text-muted text-center py-3">投票尚未开始</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if is_closed %}
+<div class="alert alert-warning shadow-sm">
+    <strong>该投票已结束</strong>，结果已锁定，不可修改。
+</div>
+{% endif %}
+
+{% if has_voted and not is_closed %}
+<div class="alert alert-success shadow-sm">
+    您已成功参与该投票，感谢您的参与！
+</div>
+{% endif %}
+
+{% if show_voter_info and not vote.is_anonymous and request.user.role in 'admin,staff' %}
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">投票人详情</h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>业主</th>
+                    <th>所选选项</th>
+                    <th>投票时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ballot in vote.ballot_records.all %}
+                <tr>
+                    <td>{{ ballot.voter|default:"匿名用户" }}</td>
+                    <td>{{ ballot.option.content }}</td>
+                    <td>{{ ballot.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted py-3">暂无投票记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -79,4 +79,10 @@ urlpatterns = [
     path('safety-inspection/<int:pk>/edit/', views.SafetyInspectionUpdateView.as_view(), name='safety_inspection_edit'),
     path('safety-inspection/<int:pk>/rectify/', views.SafetyInspectionRectifyView.as_view(), name='safety_inspection_rectify'),
     path('safety-inspection/<int:pk>/delete/', views.SafetyInspectionDeleteView.as_view(), name='safety_inspection_delete'),
+
+    path('vote/', views.VoteListView.as_view(), name='vote_list'),
+    path('vote/add/', views.VoteCreateView.as_view(), name='vote_add'),
+    path('vote/<int:pk>/', views.VoteDetailView.as_view(), name='vote_detail'),
+    path('vote/<int:pk>/submit/', views.VoteSubmitView.as_view(), name='vote_submit'),
+    path('vote/<int:pk>/delete/', views.VoteDeleteView.as_view(), name='vote_delete'),
 ]

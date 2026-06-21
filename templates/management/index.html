@@ -288,5 +288,50 @@
         </div>
     </div>
 </div>
+{% if active_unvoted %}
+<div class="row g-4 mt-1">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <span class="badge bg-white text-warning me-2">!</span>
+                    进行中的投票 - 等待您参与
+                </h5>
+                <a href="{% url 'vote_list' %}" class="btn btn-sm btn-outline-dark">查看全部投票</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>投票议题</th>
+                            <th>截止时间</th>
+                            <th>投票方式</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in active_unvoted %}
+                        <tr>
+                            <td class="fw-bold">{{ v.title }}</td>
+                            <td>{{ v.end_time|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if v.allow_multiple %}
+                                <span class="badge bg-info text-dark">多选</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark border">单选</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'vote_detail' v.id %}" class="btn btn-sm btn-warning">立即参与</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

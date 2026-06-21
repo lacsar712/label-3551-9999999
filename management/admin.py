@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Vote, VoteOption, VoteBallot, VoteRecord
 
 class CustomUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
@@ -27,3 +27,20 @@ admin.site.register(Repair)
 admin.site.register(Fee)
 admin.site.register(Contract, ContractAdmin)
 admin.site.register(ContractAttachment)
+
+
+class VoteOptionInline(admin.TabularInline):
+    model = VoteOption
+    extra = 2
+
+
+class VoteAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'status', 'start_time', 'end_time', 'allow_multiple', 'is_anonymous', 'created_by')
+    list_filter = ('status', 'allow_multiple', 'is_anonymous')
+    search_fields = ('title',)
+    inlines = [VoteOptionInline]
+
+
+admin.site.register(Vote, VoteAdmin)
+admin.site.register(VoteBallot)
+admin.site.register(VoteRecord)

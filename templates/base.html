@@ -81,6 +81,11 @@
                         class="{% if 'greening' in request.resolver_match.url_name %}active{% endif %}">绿化养护</a>
                     <a href="{% url 'safety_inspection_list' %}"
                         class="{% if 'safety_inspection' in request.resolver_match.url_name %}active{% endif %}">隐患排查</a>
+                    <a href="{% url 'vote_list' %}"
+                        class="{% if 'vote' in request.resolver_match.url_name %}active{% endif %}">投票管理</a>
+                    {% else %}
+                    <a href="{% url 'vote_list' %}"
+                        class="{% if 'vote' in request.resolver_match.url_name %}active{% endif %}">社区投票</a>
                     {% endif %}
 
                     <hr class="text-white">

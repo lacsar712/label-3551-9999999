@@ -110,4 +110,11 @@ urlpatterns = [
     path('neighborhood-help/<int:pk>/', views.NeighborhoodHelpDetailView.as_view(), name='neighborhood_help_detail'),
     path('neighborhood-help/<int:pk>/delete/', views.NeighborhoodHelpDeleteView.as_view(), name='neighborhood_help_delete'),
     path('neighborhood-help/<int:pk>/reply/', views.NeighborhoodHelpReplyView.as_view(), name='neighborhood_help_reply'),
+
+    # 应急通讯录
+    path('emergency-contact/', views.EmergencyContactListView.as_view(), name='emergency_contact_list'),
+    path('emergency-contact/add/', views.EmergencyContactCreateView.as_view(), name='emergency_contact_add'),
+    path('emergency-contact/<int:pk>/edit/', views.EmergencyContactUpdateView.as_view(), name='emergency_contact_edit'),
+    path('emergency-contact/<int:pk>/delete/', views.EmergencyContactDeleteView.as_view(), name='emergency_contact_delete'),
+    path('emergency-contact/browse/', views.EmergencyContactBrowseView.as_view(), name='emergency_contact_browse'),
 ]

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}应急通讯录 - 智慧物业平台{% endblock %}
+
+{% block extra_css %}
+<style>
+.accordion-button:not(.collapsed) {
+    color: #fff;
+    background-color: #343a40;
+    box-shadow: none;
+}
+.accordion-button:not(.collapsed)::after {
+    filter: brightness(0) invert(1);
+}
+.contact-phone {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">应急通讯录</h1>
+    <span class="badge bg-secondary fs-6">共 {{ total_count }} 条记录</span>
+</div>
+
+{% if grouped_contacts %}
+<div class="accordion" id="emergencyContactAccordion">
+    {% for key, group in grouped_contacts.items %}
+    <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
+        <h2 class="accordion-header" id="heading-{{ key }}">
+            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button"
+                data-bs-toggle="collapse" data-bs-target="#collapse-{{ key }}"
+                aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                aria-controls="collapse-{{ key }}">
+                {% if key == 'fire' %}🔥{% elif key == 'police' %}🚔{% elif key == 'water_electric' %}⚡{% elif key == 'elevator' %}🛗{% elif key == 'medical' %}🚑{% elif key == 'gas' %}🔥{% elif key == 'property' %}🏢{% else %}📋{% endif %}
+                &nbsp;{{ group.label }}
+                <span class="badge bg-light text-dark ms-2">{{ group.contacts|length }}</span>
+            </button>
+        </h2>
+        <div id="collapse-{{ key }}"
+            class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+            aria-labelledby="heading-{{ key }}"
+            data-bs-parent="#emergencyContactAccordion">
+            <div class="accordion-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for contact in group.contacts %}
+                    <div class="list-group-item px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h6 class="mb-1 fw-bold">{{ contact.name }}</h6>
+                                <div class="text-muted small">
+                                    {% if contact.service_hours %}
+                                    <span class="me-3">🕐 {{ contact.service_hours }}</span>
+                                    {% endif %}
+                                    {% if contact.remark %}
+                                    <span>📝 {{ contact.remark }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <a href="tel:{{ contact.phone }}" class="btn btn-outline-primary contact-phone">
+                                📞 {{ contact.phone }}
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <p class="text-muted fs-5">暂无应急联系人信息</p>
+</div>
+{% endif %}
+{% endblock %}

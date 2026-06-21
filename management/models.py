@@ -555,6 +555,36 @@ class TemporaryParkingPermit(models.Model):
         return False
 
 
+class EmergencyContact(models.Model):
+    CATEGORY_CHOICES = (
+        ('fire', '消防'),
+        ('police', '派出所'),
+        ('water_electric', '水电抢修'),
+        ('elevator', '电梯维保'),
+        ('medical', '医疗急救'),
+        ('gas', '燃气抢修'),
+        ('property', '物业值班'),
+        ('other', '其他'),
+    )
+
+    category = models.CharField("分类", max_length=20, choices=CATEGORY_CHOICES)
+    name = models.CharField("名称", max_length=100)
+    phone = models.CharField("电话", max_length=30)
+    service_hours = models.CharField("服务时间说明", max_length=200, blank=True, default='')
+    remark = models.TextField("备注", blank=True, default='')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="创建人", related_name="created_emergency_contacts", limit_choices_to={'role__in': ['admin', 'staff']})
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "应急联系人"
+        verbose_name_plural = "应急通讯录"
+        ordering = ['category', '-created_at']
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.name}"
+
+
 class NeighborhoodHelpPost(models.Model):
     TYPE_CHOICES = (
         ('borrow', '求借'),

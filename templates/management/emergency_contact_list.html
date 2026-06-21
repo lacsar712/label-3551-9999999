@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}应急通讯录管理 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">应急通讯录管理</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'emergency_contact_add' %}" class="btn btn-sm btn-primary">新增联系人</a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">分类筛选</label>
+                <select name="category" class="form-select">
+                    <option value="">全部分类</option>
+                    {% for key, label in categories %}
+                    <option value="{{ key }}" {% if current_category == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">查询</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'emergency_contact_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for stat in category_stats %}
+    <div class="col-md-3 col-sm-6">
+        <div class="card shadow-sm h-100 border-start border-4 {% if stat.key == 'fire' %}border-danger{% elif stat.key == 'police' %}border-dark{% elif stat.key == 'water_electric' %}border-primary{% elif stat.key == 'elevator' %}border-info{% elif stat.key == 'medical' %}border-warning{% elif stat.key == 'gas' %}border-secondary{% elif stat.key == 'property' %}border-success{% else %}border-light{% endif %}">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">{{ stat.label }}</span>
+                    <span class="fs-4 fw-bold">{{ stat.count }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>分类</th>
+                        <th>名称</th>
+                        <th>电话</th>
+                        <th>服务时间</th>
+                        <th>备注</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in contacts %}
+                    <tr>
+                        <td>
+                            {% if contact.category == 'fire' %}
+                            <span class="badge bg-danger">消防</span>
+                            {% elif contact.category == 'police' %}
+                            <span class="badge bg-dark">派出所</span>
+                            {% elif contact.category == 'water_electric' %}
+                            <span class="badge bg-primary">水电抢修</span>
+                            {% elif contact.category == 'elevator' %}
+                            <span class="badge bg-info text-dark">电梯维保</span>
+                            {% elif contact.category == 'medical' %}
+                            <span class="badge bg-warning text-dark">医疗急救</span>
+                            {% elif contact.category == 'gas' %}
+                            <span class="badge bg-secondary">燃气抢修</span>
+                            {% elif contact.category == 'property' %}
+                            <span class="badge bg-success">物业值班</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">其他</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold">{{ contact.name }}</td>
+                        <td><a href="tel:{{ contact.phone }}" class="text-decoration-none">{{ contact.phone }}</a></td>
+                        <td>{{ contact.service_hours|default:"-" }}</td>
+                        <td>{{ contact.remark|default:"-" }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'emergency_contact_edit' contact.id %}" class="btn btn-sm btn-outline-primary">编辑</a>
+                                <a href="{% url 'emergency_contact_delete' contact.id %}" class="btn btn-sm btn-outline-danger">删除</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">暂无应急联系人，请点击"新增联系人"添加</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

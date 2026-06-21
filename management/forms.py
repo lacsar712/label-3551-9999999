@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -353,4 +353,17 @@ class NeighborhoodHelpReplyForm(forms.ModelForm):
         fields = ['content']
         widgets = {
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请留下您的简短留言或联系方式'}),
+        }
+
+
+class EmergencyContactForm(forms.ModelForm):
+    class Meta:
+        model = EmergencyContact
+        fields = ['category', 'name', 'phone', 'service_hours', 'remark']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入联系人名称'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入电话号码'}),
+            'service_hours': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '如：24小时、工作日 8:00-18:00'}),
+            'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '备注信息（可选）'}),
         }

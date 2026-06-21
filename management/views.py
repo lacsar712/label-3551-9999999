@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm, EmergencyContactForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -1371,3 +1371,89 @@ class NeighborhoodHelpReplyView(LoginRequiredMixin, View):
         else:
             messages.error(request, "留言内容不能为空！")
         return redirect(reverse('neighborhood_help_detail', kwargs={'pk': pk}))
+
+
+# --- 应急通讯录 ---
+class EmergencyContactListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = EmergencyContact
+    template_name = 'management/emergency_contact_list.html'
+    context_object_name = 'contacts'
+
+    def get_queryset(self):
+        qs = EmergencyContact.objects.all()
+        category = self.request.GET.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = EmergencyContact.CATEGORY_CHOICES
+        context['current_category'] = self.request.GET.get('category', '')
+        from collections import OrderedDict
+        category_stats = []
+        for key, label in EmergencyContact.CATEGORY_CHOICES:
+            count = EmergencyContact.objects.filter(category=key).count()
+            category_stats.append({'key': key, 'label': label, 'count': count})
+        context['category_stats'] = category_stats
+        context['total_count'] = EmergencyContact.objects.count()
+        return context
+
+
+class EmergencyContactCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = EmergencyContact
+    form_class = EmergencyContactForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('emergency_contact_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "应急联系人添加成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "新增应急联系人"
+        return context
+
+
+class EmergencyContactUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = EmergencyContact
+    form_class = EmergencyContactForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('emergency_contact_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "应急联系人更新成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑应急联系人"
+        return context
+
+
+class EmergencyContactDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = EmergencyContact
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('emergency_contact_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "应急联系人删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+class EmergencyContactBrowseView(LoginRequiredMixin, TemplateView):
+    template_name = 'management/emergency_contact_browse.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from collections import OrderedDict
+        grouped = OrderedDict()
+        for key, label in EmergencyContact.CATEGORY_CHOICES:
+            contacts = EmergencyContact.objects.filter(category=key)
+            if contacts.exists():
+                grouped[key] = {'label': label, 'contacts': contacts}
+        context['grouped_contacts'] = grouped
+        context['total_count'] = EmergencyContact.objects.count()
+        return context

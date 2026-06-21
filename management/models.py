@@ -626,3 +626,76 @@ class NeighborhoodHelpReply(models.Model):
 
     def __str__(self):
         return f"{self.replier.username} - {self.content[:30]}"
+
+
+class DeliveryOrder(models.Model):
+    STATUS_CHOICES = (
+        ('pending', '待验收'),
+        ('inspecting', '验收中'),
+        ('rectifying', '待整改'),
+        ('delivered', '已交付'),
+    )
+
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, verbose_name="关联房屋", related_name="delivery_orders")
+    delivery_date = models.DateField("交付日期")
+    status = models.CharField("交付状态", max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="创建人", related_name="created_delivery_orders", limit_choices_to={'role__in': ['admin', 'staff']})
+    remark = models.TextField("备注", blank=True, null=True)
+    completed_date = models.DateField("完成交付日期", blank=True, null=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "房屋交付单"
+        verbose_name_plural = "房屋交付验收管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"交付单 #{self.id} - {self.unit}"
+
+    def passed_count(self):
+        return self.items.filter(status='pass').count()
+
+    def failed_count(self):
+        return self.items.filter(status='fail').count()
+
+    def rectify_count(self):
+        return self.items.filter(status='rectify').count()
+
+    def total_count(self):
+        return self.items.count()
+
+    def all_passed(self):
+        if self.total_count() == 0:
+            return False
+        return self.items.exclude(status='pass').count() == 0
+
+    def has_rectify_items(self):
+        return self.items.filter(status='rectify').exists()
+
+
+class DeliveryInspectionItem(models.Model):
+    STATUS_CHOICES = (
+        ('unchecked', '未检查'),
+        ('pass', '通过'),
+        ('fail', '不通过'),
+        ('rectify', '待整改'),
+    )
+
+    delivery_order = models.ForeignKey(DeliveryOrder, on_delete=models.CASCADE, verbose_name="所属交付单", related_name="items")
+    item_name = models.CharField("验收项目名称", max_length=200)
+    status = models.CharField("验收状态", max_length=20, choices=STATUS_CHOICES, default='unchecked')
+    staff_remark = models.TextField("物业验收备注", blank=True, null=True)
+    owner_remark = models.TextField("业主确认/补充说明", blank=True, null=True)
+    owner_confirmed = models.BooleanField("业主已确认", default=False)
+    inspected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="验收人", related_name="inspected_items", limit_choices_to={'role__in': ['admin', 'staff']})
+    inspected_at = models.DateTimeField("验收时间", blank=True, null=True)
+    owner_updated_at = models.DateTimeField("业主更新时间", blank=True, null=True)
+
+    class Meta:
+        verbose_name = "交付验收项目"
+        verbose_name_plural = "交付验收项目"
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.item_name} - {self.get_status_display()}"

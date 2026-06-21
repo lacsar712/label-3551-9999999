@@ -69,10 +69,14 @@
                     <a href="{% url 'fee_list' %}"
                         class="{% if 'fee' in request.resolver_match.url_name %}active{% endif %}">费用中心</a>
                     {% if request.user.role == 'owner' %}
+                    <a href="{% url 'delivery_order_list' %}"
+                        class="{% if 'delivery_order' in request.resolver_match.url_name %}active{% endif %}">房屋交付</a>
                     <a href="{% url 'community_news' %}"
                         class="{% if 'community_news' in request.resolver_match.url_name %}active{% endif %}">社区动态</a>
                     {% endif %}
                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                    <a href="{% url 'delivery_order_list' %}"
+                        class="{% if 'delivery_order' in request.resolver_match.url_name %}active{% endif %}">交付验收</a>
                     <a href="{% url 'contract_list' %}"
                         class="{% if 'contract' in request.resolver_match.url_name %}active{% endif %}">合同管理</a>
                     <a href="{% url 'supplier_list' %}"

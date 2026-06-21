@@ -117,4 +117,11 @@ urlpatterns = [
     path('emergency-contact/<int:pk>/edit/', views.EmergencyContactUpdateView.as_view(), name='emergency_contact_edit'),
     path('emergency-contact/<int:pk>/delete/', views.EmergencyContactDeleteView.as_view(), name='emergency_contact_delete'),
     path('emergency-contact/browse/', views.EmergencyContactBrowseView.as_view(), name='emergency_contact_browse'),
+
+    # 房屋交付验收管理
+    path('delivery-order/', views.DeliveryOrderListView.as_view(), name='delivery_order_list'),
+    path('delivery-order/add/', views.DeliveryOrderCreateView.as_view(), name='delivery_order_add'),
+    path('delivery-order/<int:pk>/', views.DeliveryOrderDetailView.as_view(), name='delivery_order_detail'),
+    path('delivery-order/<int:pk>/inspect/', views.DeliveryOrderInspectView.as_view(), name='delivery_order_inspect'),
+    path('delivery-order/<int:pk>/delete/', views.DeliveryOrderDeleteView.as_view(), name='delivery_order_delete'),
 ]

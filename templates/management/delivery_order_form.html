@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'delivery_order_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">关联房屋 <span class="text-danger">*</span></label>
+                    {{ form.unit }}
+                    {% if form.unit.errors %}
+                    <div class="text-danger small">{{ form.unit.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">交付日期 <span class="text-danger">*</span></label>
+                    {{ form.delivery_date }}
+                    {% if form.delivery_date.errors %}
+                    <div class="text-danger small">{{ form.delivery_date.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">备注</label>
+                    {{ form.remark }}
+                    {% if form.remark.errors %}
+                    <div class="text-danger small">{{ form.remark.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <h5 class="mb-3">验收项目清单</h5>
+            
+            <div id="item-formset">
+                {{ item_formset.management_form }}
+                {% for formset_form in item_formset %}
+                <div class="card mb-3 item-form">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label">验收项目名称</label>
+                                {{ formset_form.item_name }}
+                                {% if formset_form.item_name.errors %}
+                                <div class="text-danger small">{{ formset_form.item_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">验收状态</label>
+                                {{ formset_form.status }}
+                                {% if formset_form.status.errors %}
+                                <div class="text-danger small">{{ formset_form.status.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">物业验收备注</label>
+                                {{ formset_form.staff_remark }}
+                                {% if formset_form.staff_remark.errors %}
+                                <div class="text-danger small">{{ formset_form.staff_remark.errors }}</div>
+                                {% endif %}
+                            </div>
+                            {% if formset_form.instance.pk %}
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    {{ formset_form.DELETE }}
+                                    <label class="form-check-label text-danger">删除此项目</label>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {{ formset_form.id }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">提交</button>
+                <a href="{% url 'delivery_order_list' %}" class="btn btn-outline-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formset = document.getElementById('item-formset');
+    const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
+    
+    document.querySelectorAll('#item-formset .item-form select, #item-formset .item-form input, #item-formset .item-form textarea').forEach(el => {
+        if (!el.classList.contains('form-check-input')) {
+            el.classList.add('form-control');
+        }
+        if (el.tagName === 'SELECT') {
+            el.classList.remove('form-control');
+            el.classList.add('form-select');
+        }
+    });
+});
+</script>
+{% endblock %}

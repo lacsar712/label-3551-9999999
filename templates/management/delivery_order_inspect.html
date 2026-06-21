@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}验收编辑 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">验收编辑 - 交付单 #{{ order.id }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'delivery_order_detail' order.id %}" class="btn btn-sm btn-outline-secondary">返回详情</a>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <strong>房屋信息：</strong>
+    {{ order.unit.floor.building.estate.name }} - 
+    {{ order.unit.floor.building.name }} - 
+    {{ order.unit.floor.name }} - 
+    {{ order.unit.name }}
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <strong>交付日期：</strong>{{ order.delivery_date|date:"Y-m-d" }}
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">序号</th>
+                            <th style="width: 30%;">验收项目</th>
+                            <th style="width: 20%;">验收状态 <span class="text-danger">*</span></th>
+                            <th>物业验收备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item_data in items_data %}
+                        {% with item=item_data.item %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td class="fw-bold">{{ item.item_name }}</td>
+                            <td>
+                                <select name="item_{{ item.id }}-status" class="form-select" required>
+                                    {% for key, value in item.STATUS_CHOICES %}
+                                    <option value="{{ key }}" {% if item_data.status == key %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <textarea name="item_{{ item.id }}-staff_remark" class="form-control" rows="2" placeholder="请输入验收备注（可选）">{{ item_data.remark }}</textarea>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">暂无验收项目</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-light">
+            <button type="submit" class="btn btn-primary">保存验收结果</button>
+            <a href="{% url 'delivery_order_detail' order.id %}" class="btn btn-outline-secondary">取消</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

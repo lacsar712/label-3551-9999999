@@ -4,9 +4,9 @@ from django.contrib.auth.views import LoginView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
-from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm, EmergencyContactForm
+from datetime import date, timedelta, datetime
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact, DeliveryOrder, DeliveryInspectionItem
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm, EmergencyContactForm, DeliveryOrderCreateForm, DeliveryInspectionItemFormSet, DeliveryInspectionItemOwnerForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -57,12 +57,20 @@ class IndexView(LoginRequiredMixin, TemplateView):
             context['low_risk_open_count'] = SafetyInspection.objects.filter(risk_level='low', status='open').count()
             context['pending_lost_items_count'] = LostItem.objects.filter(status='pending').count()
             context['pending_claims_count'] = ClaimApplication.objects.filter(status='pending').count()
+
+            rectifying_orders = DeliveryOrder.objects.filter(status='rectifying').select_related('unit', 'unit__floor', 'unit__floor__building', 'unit__floor__building__estate')
+            context['rectifying_delivery_count'] = rectifying_orders.count()
+            context['rectifying_delivery_orders'] = rectifying_orders[:10]
+            context['pending_delivery_count'] = DeliveryOrder.objects.filter(status='pending').count()
+            context['inspecting_delivery_count'] = DeliveryOrder.objects.filter(status='inspecting').count()
+            context['delivered_count'] = DeliveryOrder.objects.filter(status='delivered').count()
         else:
             context['my_units'] = Unit.objects.filter(owner=self.request.user)
             context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
             context['unpaid_fees'] = Fee.objects.filter(unit__owner=self.request.user, status='unpaid')
             context['active_unvoted'] = Vote.objects.filter(status='active').exclude(voter_records__voter=self.request.user)
             context['pending_lost_items'] = LostItem.objects.filter(status='pending').order_by('-found_date')[:5]
+            context['my_delivery_orders'] = DeliveryOrder.objects.filter(unit__owner=self.request.user).order_by('-created_at')
         return context
 
 # --- 楼盘管理 ---
@@ -1457,3 +1465,201 @@ class EmergencyContactBrowseView(LoginRequiredMixin, TemplateView):
         context['grouped_contacts'] = grouped
         context['total_count'] = EmergencyContact.objects.count()
         return context
+
+
+# --- 房屋交付验收管理 ---
+class DeliveryOrderListView(LoginRequiredMixin, ListView):
+    model = DeliveryOrder
+    template_name = 'management/delivery_order_list.html'
+    context_object_name = 'delivery_orders'
+
+    def get_queryset(self):
+        qs = DeliveryOrder.objects.all()
+        if self.request.user.role == 'owner':
+            qs = qs.filter(unit__owner=self.request.user)
+
+        status = self.request.GET.get('status')
+        estate_id = self.request.GET.get('estate')
+        if status:
+            qs = qs.filter(status=status)
+        if estate_id:
+            qs = qs.filter(unit__floor__building__estate_id=estate_id)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['statuses'] = DeliveryOrder.STATUS_CHOICES
+        context['estates'] = Estate.objects.all()
+        context['current_status'] = self.request.GET.get('status', '')
+        context['current_estate'] = self.request.GET.get('estate', '')
+        context['total_count'] = DeliveryOrder.objects.count()
+        context['pending_count'] = DeliveryOrder.objects.filter(status='pending').count()
+        context['inspecting_count'] = DeliveryOrder.objects.filter(status='inspecting').count()
+        context['rectifying_count'] = DeliveryOrder.objects.filter(status='rectifying').count()
+        context['delivered_count'] = DeliveryOrder.objects.filter(status='delivered').count()
+        return context
+
+
+class DeliveryOrderCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = DeliveryOrder
+    form_class = DeliveryOrderCreateForm
+    template_name = 'management/delivery_order_form.html'
+    success_url = reverse_lazy('delivery_order_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['item_formset'] = DeliveryInspectionItemFormSet(self.request.POST)
+        else:
+            context['item_formset'] = DeliveryInspectionItemFormSet()
+        context['title'] = "创建房屋交付单"
+        return context
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.status = 'pending'
+        context = self.get_context_data()
+        item_formset = context['item_formset']
+        if item_formset.is_valid():
+            self.object = form.save()
+            item_formset.instance = self.object
+            for item_form in item_formset:
+                if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE'):
+                    if item_form.cleaned_data.get('status') and item_form.cleaned_data['status'] != 'unchecked':
+                        item_form.instance.inspected_by = self.request.user
+                        item_form.instance.inspected_at = datetime.now()
+            item_formset.save()
+            self._update_order_status(self.object)
+            messages.success(self.request, "交付单创建成功！")
+            return redirect(self.success_url)
+        else:
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def _update_order_status(self, order):
+        total = order.items.count()
+        unchecked = order.items.filter(status='unchecked').count()
+        rectify = order.items.filter(status='rectify').count()
+        if unchecked == total:
+            order.status = 'pending'
+        elif rectify > 0:
+            order.status = 'rectifying'
+        elif unchecked > 0:
+            order.status = 'inspecting'
+        elif order.all_passed():
+            order.status = 'delivered'
+            order.completed_date = date.today()
+        else:
+            order.status = 'inspecting'
+        order.save()
+
+
+class DeliveryOrderDetailView(LoginRequiredMixin, DetailView):
+    model = DeliveryOrder
+    template_name = 'management/delivery_order_detail.html'
+    context_object_name = 'order'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'owner':
+            qs = qs.filter(unit__owner=self.request.user)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        order = context['order']
+        context['items'] = order.items.all()
+        context['passed_count'] = order.passed_count()
+        context['failed_count'] = order.failed_count()
+        context['rectify_count'] = order.rectify_count()
+        context['total_count'] = order.total_count()
+        context['is_staff'] = self.request.user.role in ['admin', 'staff']
+        context['is_owner'] = self.request.user.role == 'owner'
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if request.user.role == 'owner':
+            now = datetime.now()
+            for item in self.object.items.filter(status='rectify'):
+                prefix = f'item_{item.id}'
+                owner_remark = request.POST.get(f'{prefix}-owner_remark', '').strip()
+                confirm = request.POST.get(f'{prefix}-confirm') == 'on'
+                if confirm or owner_remark:
+                    item.owner_confirmed = confirm
+                    if owner_remark:
+                        item.owner_remark = owner_remark
+                    item.owner_updated_at = now
+                    item.save()
+            messages.success(request, "您的确认意见已提交！")
+            return redirect(reverse('delivery_order_detail', kwargs={'pk': self.object.pk}))
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+
+class DeliveryOrderInspectView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = DeliveryOrder
+    template_name = 'management/delivery_order_inspect.html'
+    context_object_name = 'order'
+    fields = []
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        order = context['order']
+        if self.request.POST:
+            items_data = []
+            for item in order.items.all():
+                prefix = f'item_{item.id}'
+                status = self.request.POST.get(f'{prefix}-status')
+                remark = self.request.POST.get(f'{prefix}-staff_remark', '')
+                items_data.append({'item': item, 'status': status, 'remark': remark})
+            context['items_data'] = items_data
+        else:
+            context['items_data'] = [{'item': item, 'status': item.status, 'remark': item.staff_remark or ''} for item in order.items.all()]
+        context['title'] = "验收编辑"
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        now = datetime.now()
+        for item in self.object.items.all():
+            prefix = f'item_{item.id}'
+            status = request.POST.get(f'{prefix}-status')
+            remark = request.POST.get(f'{prefix}-staff_remark', '')
+            if status in [s[0] for s in DeliveryInspectionItem.STATUS_CHOICES]:
+                item.status = status
+                item.staff_remark = remark
+                if status != 'unchecked':
+                    item.inspected_by = request.user
+                    item.inspected_at = now
+                item.save()
+
+        self._update_order_status(self.object)
+        messages.success(request, "验收结果已保存！")
+        return redirect(reverse('delivery_order_detail', kwargs={'pk': self.object.pk}))
+
+    def _update_order_status(self, order):
+        total = order.items.count()
+        unchecked = order.items.filter(status='unchecked').count()
+        rectify = order.items.filter(status='rectify').count()
+        if unchecked == total:
+            order.status = 'pending'
+        elif rectify > 0:
+            order.status = 'rectifying'
+        elif unchecked > 0:
+            order.status = 'inspecting'
+        elif order.all_passed():
+            order.status = 'delivered'
+            order.completed_date = date.today()
+        else:
+            order.status = 'inspecting'
+        order.save()
+
+
+class DeliveryOrderDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = DeliveryOrder
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('delivery_order_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "交付单删除成功！")
+        return super().delete(request, *args, **kwargs)

@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact, DeliveryOrder, DeliveryInspectionItem
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -366,4 +366,57 @@ class EmergencyContactForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入电话号码'}),
             'service_hours': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '如：24小时、工作日 8:00-18:00'}),
             'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '备注信息（可选）'}),
+        }
+
+
+class DeliveryOrderCreateForm(forms.ModelForm):
+    class Meta:
+        model = DeliveryOrder
+        fields = ['unit', 'delivery_date', 'remark']
+        widgets = {
+            'unit': forms.Select(attrs={'class': 'form-select'}),
+            'delivery_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入备注（可选）'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['unit'].empty_label = "请选择房屋单元"
+
+
+class DeliveryInspectionItemForm(forms.ModelForm):
+    class Meta:
+        model = DeliveryInspectionItem
+        fields = ['item_name', 'status', 'staff_remark']
+        widgets = {
+            'item_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入验收项目名称'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'staff_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '请输入验收备注（可选）'}),
+        }
+
+
+DeliveryInspectionItemFormSet = inlineformset_factory(
+    DeliveryOrder, DeliveryInspectionItem, form=DeliveryInspectionItemForm,
+    extra=5, min_num=1, validate_min=True, can_delete=True
+)
+
+
+class DeliveryInspectionItemUpdateForm(forms.ModelForm):
+    class Meta:
+        model = DeliveryInspectionItem
+        fields = ['status', 'staff_remark']
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'staff_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '请输入验收备注（可选）'}),
+        }
+
+
+class DeliveryInspectionItemOwnerForm(forms.ModelForm):
+    confirm = forms.BooleanField(label="我已确认该整改项", required=False)
+
+    class Meta:
+        model = DeliveryInspectionItem
+        fields = ['owner_remark']
+        widgets = {
+            'owner_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入确认意见或补充说明（可选）'}),
         }

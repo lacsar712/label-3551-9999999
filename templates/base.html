@@ -79,6 +79,8 @@
                         class="{% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">供应商管理</a>
                     <a href="{% url 'greening_maintenance_list' %}"
                         class="{% if 'greening' in request.resolver_match.url_name %}active{% endif %}">绿化养护</a>
+                    <a href="{% url 'safety_inspection_list' %}"
+                        class="{% if 'safety_inspection' in request.resolver_match.url_name %}active{% endif %}">隐患排查</a>
                     {% endif %}
 
                     <hr class="text-white">

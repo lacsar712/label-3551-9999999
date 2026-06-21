@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}隐患整改消项 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">隐患整改消项 #{{ inspection.id }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'safety_inspection_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+        <a href="{% url 'safety_inspection_detail' inspection.id %}" class="btn btn-sm btn-outline-info">查看详情</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4 border-warning">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">隐患信息（填写整改信息后将标记为已消项）</h5>
+                <div>
+                    {% if inspection.risk_level == 'high' %}
+                    <span class="badge bg-danger">高风险</span>
+                    {% elif inspection.risk_level == 'medium' %}
+                    <span class="badge bg-warning text-dark">中风险</span>
+                    {% else %}
+                    <span class="badge bg-info text-dark">低风险</span>
+                    {% endif %}
+                    {% if inspection.overdue_flag %}
+                    <span class="badge bg-danger ms-1">已逾期</span>
+                    {% elif inspection.days_left <= 7 %}
+                    <span class="badge bg-warning text-dark ms-1">剩余 {{ inspection.days_left }} 天</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">所属楼盘</label>
+                        <p class="fw-medium mb-0">{{ inspection.estate.name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">排查区域</label>
+                        <p class="fw-medium mb-0">{{ inspection.inspection_area }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">发现日期</label>
+                        <p class="fw-medium mb-0">{{ inspection.discovery_date|date:"Y-m-d" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">整改期限</label>
+                        <p class="fw-medium mb-0">{{ inspection.rectification_deadline|date:"Y-m-d" }}</p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">隐患描述</label>
+                    <div class="border rounded p-3 bg-light">
+                        {{ inspection.hazard_description|linebreaks }}
+                    </div>
+                </div>
+                {% if inspection.site_remark %}
+                <div class="mb-0">
+                    <label class="form-label text-muted small mb-1">现场备注</label>
+                    <div class="border rounded p-3 bg-light">
+                        {{ inspection.site_remark|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">填写整改信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">整改措施 <span class="text-danger">*</span></label>
+                        {{ form.rectification_measures }}
+                        {% if form.rectification_measures.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.rectification_measures.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">请详细描述采取的整改措施、处理过程和结果</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">完成日期 <span class="text-danger">*</span></label>
+                        {{ form.completion_date }}
+                        {% if form.completion_date.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.completion_date.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex justify-content-end gap-2 pb-4">
+                    <a href="{% url 'safety_inspection_detail' inspection.id %}" class="btn btn-outline-secondary">取消</a>
+                    <button type="submit" class="btn btn-success">确认整改并消项</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">消项须知</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0 small ps-3">
+                    <li class="mb-2">确认隐患已完成整改并符合安全标准</li>
+                    <li class="mb-2">填写的整改措施将作为永久记录保存</li>
+                    <li class="mb-2">完成日期默认为今天，可根据实际情况调整</li>
+                    <li class="mb-2">消项后状态将变更为"已消项"，可在详情页查看处理轨迹</li>
+                    <li>如有需要，可在详情页中编辑或重新开启</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">时间节点</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0 small">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">创建时间</span>
+                        <span class="fw-medium">{{ inspection.created_at|date:"Y-m-d H:i" }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">发现日期</span>
+                        <span class="fw-medium">{{ inspection.discovery_date|date:"Y-m-d" }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted">整改期限</span>
+                        <span class="fw-medium">
+                            {{ inspection.rectification_deadline|date:"Y-m-d" }}
+                            {% if inspection.overdue_flag %}
+                            <br><span class="text-danger">已逾期</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

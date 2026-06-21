@@ -71,4 +71,12 @@ urlpatterns = [
 
     # 业主端 - 社区动态
     path('community-news/', views.CommunityNewsView.as_view(), name='community_news'),
+
+    # 安全隐患排查管理
+    path('safety-inspection/', views.SafetyInspectionListView.as_view(), name='safety_inspection_list'),
+    path('safety-inspection/add/', views.SafetyInspectionCreateView.as_view(), name='safety_inspection_add'),
+    path('safety-inspection/<int:pk>/', views.SafetyInspectionDetailView.as_view(), name='safety_inspection_detail'),
+    path('safety-inspection/<int:pk>/edit/', views.SafetyInspectionUpdateView.as_view(), name='safety_inspection_edit'),
+    path('safety-inspection/<int:pk>/rectify/', views.SafetyInspectionRectifyView.as_view(), name='safety_inspection_rectify'),
+    path('safety-inspection/<int:pk>/delete/', views.SafetyInspectionDeleteView.as_view(), name='safety_inspection_delete'),
 ]

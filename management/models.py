@@ -258,3 +258,73 @@ class GreeningMaintenance(models.Model):
 
     def __str__(self):
         return f"{self.estate.name} - {self.get_maintenance_type_display()} - {self.work_date}"
+
+
+class SafetyInspection(models.Model):
+    RISK_LEVEL_CHOICES = (
+        ('high', '高风险'),
+        ('medium', '中风险'),
+        ('low', '低风险'),
+    )
+    STATUS_CHOICES = (
+        ('open', '未消项'),
+        ('closed', '已消项'),
+    )
+
+    estate = models.ForeignKey(Estate, on_delete=models.CASCADE, verbose_name="所属楼盘", related_name="safety_inspections")
+    inspection_area = models.CharField("排查区域", max_length=200)
+    hazard_description = models.TextField("隐患描述")
+    risk_level = models.CharField("风险等级", max_length=10, choices=RISK_LEVEL_CHOICES)
+    discovery_date = models.DateField("发现日期")
+    rectification_deadline = models.DateField("整改期限")
+    site_remark = models.TextField("现场备注", blank=True, null=True)
+    status = models.CharField("消项状态", max_length=10, choices=STATUS_CHOICES, default='open')
+    rectification_measures = models.TextField("整改措施", blank=True, null=True)
+    completion_date = models.DateField("完成日期", blank=True, null=True)
+
+    inspector = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="排查人", related_name="inspected_hazards", limit_choices_to={'role__in': ['admin', 'staff']})
+    rectifier = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="整改人", related_name="rectified_hazards", limit_choices_to={'role__in': ['admin', 'staff']})
+
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "安全隐患排查记录"
+        verbose_name_plural = "安全隐患排查管理"
+        ordering = ['-discovery_date', '-created_at']
+
+    def __str__(self):
+        return f"[{self.get_risk_level_display()}] {self.inspection_area} - {self.discovery_date}"
+
+    def is_overdue(self):
+        from datetime import date
+        return self.status == 'open' and self.rectification_deadline < date.today()
+
+    def days_until_deadline(self):
+        from datetime import date
+        return (self.rectification_deadline - date.today()).days
+
+
+class SafetyInspectionTrack(models.Model):
+    ACTION_CHOICES = (
+        ('create', '创建记录'),
+        ('update', '更新记录'),
+        ('rectify', '提交整改'),
+        ('close', '标记消项'),
+        ('reopen', '重新开启'),
+        ('remark', '添加备注'),
+    )
+
+    inspection = models.ForeignKey(SafetyInspection, on_delete=models.CASCADE, verbose_name="关联隐患", related_name="tracks")
+    action = models.CharField("操作类型", max_length=20, choices=ACTION_CHOICES)
+    operator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="操作人")
+    remark = models.TextField("操作说明", blank=True, null=True)
+    created_at = models.DateTimeField("操作时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "隐患处理轨迹"
+        verbose_name_plural = "隐患处理轨迹"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.inspection.id} - {self.get_action_display()} - {self.created_at}"

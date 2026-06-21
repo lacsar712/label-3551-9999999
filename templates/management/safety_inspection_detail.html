@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}隐患详情 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">隐患排查详情 #{{ inspection.id }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'safety_inspection_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+        {% if inspection.status == 'open' %}
+        <a href="{% url 'safety_inspection_edit' inspection.id %}" class="btn btn-sm btn-outline-secondary">编辑记录</a>
+        <a href="{% url 'safety_inspection_rectify' inspection.id %}" class="btn btn-sm btn-success">整改消项</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">基本信息</h5>
+                <div>
+                    {% if inspection.risk_level == 'high' %}
+                    <span class="badge bg-danger">高风险</span>
+                    {% elif inspection.risk_level == 'medium' %}
+                    <span class="badge bg-warning text-dark">中风险</span>
+                    {% else %}
+                    <span class="badge bg-info text-dark">低风险</span>
+                    {% endif %}
+                    {% if inspection.status == 'open' %}
+                    <span class="badge bg-warning text-dark">未消项</span>
+                        {% if inspection.overdue_flag %}
+                        <span class="badge bg-danger">已逾期</span>
+                        {% elif inspection.days_left <= 7 %}
+                        <span class="badge bg-warning text-dark">剩余 {{ inspection.days_left }} 天</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="badge bg-success">已消项</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">所属楼盘</label>
+                        <p class="fw-medium mb-0">{{ inspection.estate.name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">排查区域</label>
+                        <p class="fw-medium mb-0">{{ inspection.inspection_area }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">发现日期</label>
+                        <p class="fw-medium mb-0">{{ inspection.discovery_date|date:"Y-m-d" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">整改期限</label>
+                        <p class="fw-medium mb-0">
+                            {{ inspection.rectification_deadline|date:"Y-m-d" }}
+                            {% if inspection.status == 'open' and inspection.overdue_flag %}
+                            <span class="badge bg-danger ms-2">已逾期</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">排查人</label>
+                        <p class="fw-medium mb-0">
+                            {% if inspection.inspector %}
+                            {{ inspection.inspector.username }}
+                            {% else %}
+                            <span class="text-muted">未记录</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">整改人</label>
+                        <p class="fw-medium mb-0">
+                            {% if inspection.rectifier %}
+                            {{ inspection.rectifier.username }}
+                            {% else %}
+                            <span class="text-muted">未记录</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">隐患描述</label>
+                    <div class="border rounded p-3 bg-light">
+                        {{ inspection.hazard_description|linebreaks }}
+                    </div>
+                </div>
+                {% if inspection.site_remark %}
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">现场备注</label>
+                    <div class="border rounded p-3 bg-light">
+                        {{ inspection.site_remark|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if inspection.status == 'closed' %}
+        <div class="card shadow-sm border-0 mb-4 border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">整改信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">完成日期</label>
+                        <p class="fw-medium mb-0">{{ inspection.completion_date|date:"Y-m-d" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small mb-1">整改人</label>
+                        <p class="fw-medium mb-0">
+                            {% if inspection.rectifier %}
+                            {{ inspection.rectifier.username }}
+                            {% else %}
+                            <span class="text-muted">未记录</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label text-muted small mb-1">整改措施</label>
+                    <div class="border rounded p-3 bg-light">
+                        {{ inspection.rectification_measures|linebreaks }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">处理轨迹（从发现到消项）</h5>
+            </div>
+            <div class="card-body">
+                {% if tracks %}
+                <div class="position-relative">
+                    {% for track in tracks %}
+                    <div class="d-flex mb-4 {% if not forloop.last %}pb-4 border-bottom{% endif %}">
+                        <div class="flex-shrink-0 d-flex flex-column align-items-center me-3">
+                            {% if track.action == 'create' %}
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                    <path d="M8.93 6.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588z"/>
+                                    <circle cx="8" cy="4.5" r="1"/>
+                                </svg>
+                            </div>
+                            {% elif track.action == 'update' %}
+                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                                    <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+                                </svg>
+                            </div>
+                            {% elif track.action == 'close' %}
+                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                                    <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                </svg>
+                            </div>
+                            {% else %}
+                            <div class="rounded-circle bg-info text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="mb-0">
+                                    {% if track.action == 'create' %}创建记录
+                                    {% elif track.action == 'update' %}更新记录
+                                    {% elif track.action == 'rectify' %}提交整改
+                                    {% elif track.action == 'close' %}标记消项
+                                    {% elif track.action == 'reopen' %}重新开启
+                                    {% else %}添加备注
+                                    {% endif %}
+                                </h6>
+                                <small class="text-muted">{{ track.created_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                            <p class="text-muted small mb-1">操作人：{{ track.operator.username|default:"系统" }}</p>
+                            {% if track.remark %}
+                            <div class="mt-2 p-2 bg-light rounded">
+                                <small>{{ track.remark }}</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3 mb-0">暂无处理轨迹</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">快捷操作</h5>
+            </div>
+            <div class="card-body d-grid gap-2">
+                <a href="{% url 'safety_inspection_list' %}" class="btn btn-outline-primary">返回列表</a>
+                {% if inspection.status == 'open' %}
+                <a href="{% url 'safety_inspection_rectify' inspection.id %}" class="btn btn-success">立即整改消项</a>
+                <a href="{% url 'safety_inspection_edit' inspection.id %}" class="btn btn-outline-secondary">编辑记录</a>
+                {% endif %}
+                <a href="{% url 'safety_inspection_delete' inspection.id %}" class="btn btn-outline-danger">删除记录</a>
+                <a href="{% url 'safety_inspection_add' %}" class="btn btn-outline-primary">新增排查记录</a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">时间节点</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">创建时间</span>
+                        <span class="fw-medium">{{ inspection.created_at|date:"Y-m-d H:i" }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">发现日期</span>
+                        <span class="fw-medium">{{ inspection.discovery_date|date:"Y-m-d" }}</span>
+                    </li>
+                    <li class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">整改期限</span>
+                        <span class="fw-medium">
+                            {{ inspection.rectification_deadline|date:"Y-m-d" }}
+                            {% if inspection.status == 'open' and inspection.overdue_flag %}
+                            <br><span class="text-danger">已逾期</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                    {% if inspection.completion_date %}
+                    <li class="d-flex justify-content-between py-2">
+                        <span class="text-muted">完成日期</span>
+                        <span class="fw-medium">{{ inspection.completion_date|date:"Y-m-d" }}</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

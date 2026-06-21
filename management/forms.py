@@ -1,5 +1,5 @@
 from django import forms
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -149,4 +149,49 @@ class GreeningMaintenanceForm(forms.ModelForm):
             'worker': forms.TextInput(attrs={'class': 'form-control'}),
             'materials': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '请输入所用物料，如：复合肥5kg、杀虫剂3瓶等'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入作业描述'}),
+        }
+
+
+class SafetyInspectionCreateForm(forms.ModelForm):
+    class Meta:
+        model = SafetyInspection
+        fields = ['estate', 'inspection_area', 'hazard_description', 'risk_level', 'discovery_date', 'rectification_deadline', 'site_remark']
+        widgets = {
+            'estate': forms.Select(attrs={'class': 'form-select'}),
+            'inspection_area': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入排查区域，如：3号楼2层消防通道'}),
+            'hazard_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': '请详细描述隐患情况'}),
+            'risk_level': forms.Select(attrs={'class': 'form-select'}),
+            'discovery_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'rectification_deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'site_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '请输入现场备注（可选）'}),
+        }
+
+
+class SafetyInspectionRectifyForm(forms.ModelForm):
+    class Meta:
+        model = SafetyInspection
+        fields = ['rectification_measures', 'completion_date']
+        widgets = {
+            'rectification_measures': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': '请详细填写整改措施'}),
+            'completion_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['rectification_measures'].required = True
+        self.fields['completion_date'].required = True
+
+
+class SafetyInspectionUpdateForm(forms.ModelForm):
+    class Meta:
+        model = SafetyInspection
+        fields = ['estate', 'inspection_area', 'hazard_description', 'risk_level', 'discovery_date', 'rectification_deadline', 'site_remark']
+        widgets = {
+            'estate': forms.Select(attrs={'class': 'form-select'}),
+            'inspection_area': forms.TextInput(attrs={'class': 'form-control'}),
+            'hazard_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'risk_level': forms.Select(attrs={'class': 'form-select'}),
+            'discovery_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'rectification_deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'site_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }

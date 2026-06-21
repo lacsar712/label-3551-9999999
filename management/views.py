@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -46,6 +46,15 @@ class IndexView(LoginRequiredMixin, TemplateView):
             context['expiring_contracts_count'] = expiring_contracts.count()
             context['expiring_contracts'] = expiring_contracts[:5]
             context['expiring_contracts_total_amount'] = sum(c.amount for c in expiring_contracts)
+            
+            high_risk_open = SafetyInspection.objects.filter(risk_level='high', status='open').order_by('rectification_deadline')
+            context['high_risk_open_count'] = high_risk_open.count()
+            context['high_risk_open'] = high_risk_open[:10]
+            for h in high_risk_open:
+                h.overdue_flag = h.is_overdue()
+                h.days_left = h.days_until_deadline()
+            context['medium_risk_open_count'] = SafetyInspection.objects.filter(risk_level='medium', status='open').count()
+            context['low_risk_open_count'] = SafetyInspection.objects.filter(risk_level='low', status='open').count()
         else:
             context['my_units'] = Unit.objects.filter(owner=self.request.user)
             context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
@@ -645,3 +654,155 @@ class CommunityNewsView(LoginRequiredMixin, ListView):
         return GreeningMaintenance.objects.filter(
             work_date__gte=thirty_days_ago
         ).order_by('-work_date', '-created_at')
+
+
+# --- 安全隐患排查管理 ---
+class SafetyInspectionListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = SafetyInspection
+    template_name = 'management/safety_inspection_list.html'
+    context_object_name = 'inspections'
+
+    def get_queryset(self):
+        qs = SafetyInspection.objects.all()
+        risk_level = self.request.GET.get('risk_level')
+        status = self.request.GET.get('status')
+        date_start = self.request.GET.get('date_start')
+        date_end = self.request.GET.get('date_end')
+        estate_id = self.request.GET.get('estate')
+        if risk_level:
+            qs = qs.filter(risk_level=risk_level)
+        if status:
+            qs = qs.filter(status=status)
+        if estate_id:
+            qs = qs.filter(estate_id=estate_id)
+        if date_start:
+            qs = qs.filter(discovery_date__gte=date_start)
+        if date_end:
+            qs = qs.filter(discovery_date__lte=date_end)
+        for obj in qs:
+            obj.overdue_flag = obj.is_overdue()
+            obj.days_left = obj.days_until_deadline()
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['risk_levels'] = SafetyInspection.RISK_LEVEL_CHOICES
+        context['statuses'] = SafetyInspection.STATUS_CHOICES
+        context['estates'] = Estate.objects.all()
+        context['current_risk_level'] = self.request.GET.get('risk_level', '')
+        context['current_status'] = self.request.GET.get('status', '')
+        context['current_estate'] = self.request.GET.get('estate', '')
+        context['date_start'] = self.request.GET.get('date_start', '')
+        context['date_end'] = self.request.GET.get('date_end', '')
+        context['total_count'] = SafetyInspection.objects.count()
+        context['open_count'] = SafetyInspection.objects.filter(status='open').count()
+        context['closed_count'] = SafetyInspection.objects.filter(status='closed').count()
+        context['high_risk_count'] = SafetyInspection.objects.filter(risk_level='high').count()
+        context['medium_risk_count'] = SafetyInspection.objects.filter(risk_level='medium').count()
+        context['low_risk_count'] = SafetyInspection.objects.filter(risk_level='low').count()
+        return context
+
+
+class SafetyInspectionCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = SafetyInspection
+    form_class = SafetyInspectionCreateForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('safety_inspection_list')
+
+    def form_valid(self, form):
+        form.instance.inspector = self.request.user
+        response = super().form_valid(form)
+        SafetyInspectionTrack.objects.create(
+            inspection=self.object,
+            action='create',
+            operator=self.request.user,
+            remark=f'创建隐患排查记录：风险等级-{}, 区域-{}'.format(
+                self.object.get_risk_level_display(),
+                self.object.inspection_area
+            )
+        )
+        messages.success(self.request, "隐患排查记录提交成功！")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "提交安全隐患排查记录"
+        return context
+
+
+class SafetyInspectionDetailView(LoginRequiredMixin, StaffRequiredMixin, DetailView):
+    model = SafetyInspection
+    template_name = 'management/safety_inspection_detail.html'
+    context_object_name = 'inspection'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        obj = context['inspection']
+        obj.overdue_flag = obj.is_overdue()
+        obj.days_left = obj.days_until_deadline()
+        context['tracks'] = obj.tracks.all()
+        return context
+
+
+class SafetyInspectionUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = SafetyInspection
+    form_class = SafetyInspectionUpdateForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('safety_inspection_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        SafetyInspectionTrack.objects.create(
+            inspection=self.object,
+            action='update',
+            operator=self.request.user,
+            remark='更新隐患排查记录基本信息'
+        )
+        messages.success(self.request, "隐患排查记录更新成功！")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑隐患排查记录"
+        return context
+
+
+class SafetyInspectionRectifyView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = SafetyInspection
+    form_class = SafetyInspectionRectifyForm
+    template_name = 'management/safety_inspection_rectify.html'
+    success_url = reverse_lazy('safety_inspection_list')
+
+    def form_valid(self, form):
+        form.instance.status = 'closed'
+        form.instance.rectifier = self.request.user
+        response = super().form_valid(form)
+        SafetyInspectionTrack.objects.create(
+            inspection=self.object,
+            action='close',
+            operator=self.request.user,
+            remark=f'完成整改并标记消项，整改措施：{}'.format(
+                self.object.rectification_measures[:100]
+            )
+        )
+        messages.success(self.request, "整改完成，已标记消项！")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        obj = context['form'].instance
+        obj.overdue_flag = obj.is_overdue()
+        obj.days_left = obj.days_until_deadline()
+        context['inspection'] = obj
+        context['title'] = "隐患整改消项"
+        return context
+
+
+class SafetyInspectionDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = SafetyInspection
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('safety_inspection_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "隐患排查记录删除成功！")
+        return super().delete(request, *args, **kwargs)

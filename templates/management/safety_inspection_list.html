@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}安全隐患排查 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">安全隐患排查管理</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'safety_inspection_add' %}" class="btn btn-sm btn-primary">提交排查记录</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-primary">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">排查记录总数</h6>
+                <p class="card-text fs-3 fw-bold text-primary mb-0">{{ total_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-warning">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">未消项</h6>
+                <p class="card-text fs-3 fw-bold text-warning mb-0">{{ open_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-success">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">已消项</h6>
+                <p class="card-text fs-3 fw-bold text-success mb-0">{{ closed_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-danger">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">高风险</h6>
+                <p class="card-text fs-3 fw-bold text-danger mb-0">{{ high_risk_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-warning-subtle">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">中风险</h6>
+                <p class="card-text fs-3 fw-bold mb-0" style="color:#ffc107;">{{ medium_risk_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card shadow-sm h-100 border-info">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-1 text-muted">低风险</h6>
+                <p class="card-text fs-3 fw-bold text-info mb-0">{{ low_risk_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">所属楼盘</label>
+                <select name="estate" class="form-select">
+                    <option value="">全部</option>
+                    {% for estate in estates %}
+                    <option value="{{ estate.id }}" {% if current_estate == estate.id|stringformat:"i" %}selected{% endif %}>{{ estate.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">风险等级</label>
+                <select name="risk_level" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, value in risk_levels %}
+                    <option value="{{ key }}" {% if current_risk_level == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">消项状态</label>
+                <select name="status" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, value in statuses %}
+                    <option value="{{ key }}" {% if current_status == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">排查日期(起)</label>
+                <input type="date" name="date_start" class="form-control" value="{{ date_start }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">排查日期(止)</label>
+                <input type="date" name="date_end" class="form-control" value="{{ date_end }}">
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">查询</button>
+            </div>
+            <div class="col-md-1">
+                <a href="{% url 'safety_inspection_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>编号</th>
+                        <th>所属楼盘</th>
+                        <th>排查区域</th>
+                        <th>风险等级</th>
+                        <th>发现日期</th>
+                        <th>整改期限</th>
+                        <th>消项状态</th>
+                        <th>排查人</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inspections %}
+                    <tr {% if item.overdue_flag and item.status == 'open' %}class="table-danger"{% endif %}>
+                        <td><span class="fw-bold">#{{ item.id }}</span></td>
+                        <td>{{ item.estate.name }}</td>
+                        <td>{{ item.inspection_area }}</td>
+                        <td>
+                            {% if item.risk_level == 'high' %}
+                            <span class="badge bg-danger">高风险</span>
+                            {% elif item.risk_level == 'medium' %}
+                            <span class="badge bg-warning text-dark">中风险</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark">低风险</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.discovery_date|date:"Y-m-d" }}</td>
+                        <td>
+                            {{ item.rectification_deadline|date:"Y-m-d" }}
+                            {% if item.status == 'open' %}
+                                {% if item.overdue_flag %}
+                                <br><span class="badge bg-danger">已逾期</span>
+                                {% elif item.days_left <= 7 %}
+                                <br><span class="badge bg-warning text-dark">剩 {{ item.days_left }} 天</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.status == 'open' %}
+                            <span class="badge bg-warning text-dark">未消项</span>
+                            {% else %}
+                            <span class="badge bg-success">已消项</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.inspector %}
+                            {{ item.inspector.username }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'safety_inspection_detail' item.id %}" class="btn btn-outline-info">详情</a>
+                                {% if item.status == 'open' %}
+                                <a href="{% url 'safety_inspection_edit' item.id %}" class="btn btn-outline-secondary">编辑</a>
+                                <a href="{% url 'safety_inspection_rectify' item.id %}" class="btn btn-outline-success">整改消项</a>
+                                {% endif %}
+                                <a href="{% url 'safety_inspection_delete' item.id %}" class="btn btn-outline-danger">删除</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">暂无隐患排查记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

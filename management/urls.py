@@ -56,4 +56,10 @@ urlpatterns = [
     path('contract/<int:pk>/', views.ContractDetailView.as_view(), name='contract_detail'),
     path('contract/attachment/<int:pk>/download/', views.ContractAttachmentDownloadView.as_view(), name='contract_attachment_download'),
     path('contract/attachment/<int:pk>/delete/', views.ContractAttachmentDeleteView.as_view(), name='contract_attachment_delete'),
+
+    # 供应商管理
+    path('supplier/', views.SupplierListView.as_view(), name='supplier_list'),
+    path('supplier/add/', views.SupplierCreateView.as_view(), name='supplier_add'),
+    path('supplier/<int:pk>/edit/', views.SupplierUpdateView.as_view(), name='supplier_edit'),
+    path('supplier/<int:pk>/delete/', views.SupplierDeleteView.as_view(), name='supplier_delete'),
 ]

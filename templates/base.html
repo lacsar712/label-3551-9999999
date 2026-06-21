@@ -71,6 +71,8 @@
                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'contract_list' %}"
                         class="{% if 'contract' in request.resolver_match.url_name %}active{% endif %}">合同管理</a>
+                    <a href="{% url 'supplier_list' %}"
+                        class="{% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">供应商管理</a>
                     {% endif %}
 
                     <hr class="text-white">

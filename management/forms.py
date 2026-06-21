@@ -1,5 +1,5 @@
 from django import forms
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -52,12 +52,18 @@ class UnitForm(forms.ModelForm):
 class RepairStaffForm(forms.ModelForm):
     class Meta:
         model = Repair
-        fields = ['status', 'processor', 'feedback']
+        fields = ['status', 'processor', 'supplier', 'feedback']
         widgets = {
             'status': forms.Select(attrs={'class': 'form-select'}),
             'processor': forms.Select(attrs={'class': 'form-select'}),
+            'supplier': forms.Select(attrs={'class': 'form-select'}),
             'feedback': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['supplier'].queryset = Supplier.objects.filter(cooperation_status='active')
+        self.fields['supplier'].empty_label = "请选择委外供应商（可选）"
 
 class RepairOwnerForm(forms.ModelForm):
     class Meta:
@@ -114,4 +120,19 @@ class ContractAttachmentForm(forms.ModelForm):
         fields = ['file']
         widgets = {
             'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
+        }
+
+
+class SupplierForm(forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = ['name', 'contact_person', 'phone', 'service_category', 'cooperation_status', 'address', 'remark']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'contact_person': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'service_category': forms.Select(attrs={'class': 'form-select'}),
+            'cooperation_status': forms.Select(attrs={'class': 'form-select'}),
+            'address': forms.TextInput(attrs={'class': 'form-control'}),
+            'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }

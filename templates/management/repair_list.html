@@ -57,6 +57,7 @@
                         <th>提交时间</th>
                         <th>状态</th>
                         {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+                        <th>委外供应商</th>
                         <th>操作</th>
                         {% else %}
                         <th>反馈结果</th>
@@ -84,6 +85,13 @@
                         </td>
                         {% if request.user.role == 'staff' or request.user.role == 'admin' %}
                         <td>
+                            {% if repair.supplier %}
+                            <span class="badge bg-outline-primary">{{ repair.supplier.name }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <a href="{% url 'repair_process' repair.id %}" class="btn btn-sm btn-outline-primary">处理</a>
                         </td>
                         {% else %}
@@ -92,7 +100,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">暂无报修记录</td>
+                        <td colspan="7" class="text-center py-4 text-muted">暂无报修记录</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -64,6 +64,41 @@ class Unit(models.Model):
     def __str__(self):
         return f"{self.floor} - {self.name}"
 
+class Supplier(models.Model):
+    SERVICE_CATEGORY_CHOICES = (
+        ('water_electric', '水电维修'),
+        ('elevator', '电梯维保'),
+        ('greening', '绿化养护'),
+        ('cleaning', '保洁服务'),
+        ('security', '安保服务'),
+        ('fire_control', '消防维保'),
+        ('air_condition', '空调维保'),
+        ('other', '其他服务'),
+    )
+    COOPERATION_STATUS_CHOICES = (
+        ('active', '合作中'),
+        ('inactive', '已停用'),
+    )
+
+    name = models.CharField("供应商名称", max_length=100)
+    contact_person = models.CharField("联系人", max_length=50)
+    phone = models.CharField("联系电话", max_length=20)
+    service_category = models.CharField("服务类别", max_length=30, choices=SERVICE_CATEGORY_CHOICES)
+    cooperation_status = models.CharField("合作状态", max_length=20, choices=COOPERATION_STATUS_CHOICES, default='active')
+    address = models.CharField("地址", max_length=255, blank=True, null=True)
+    remark = models.TextField("备注", blank=True, null=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "供应商"
+        verbose_name_plural = "供应商管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_service_category_display()})"
+
+
 class Repair(models.Model):
     TYPE_CHOICES = (
         ('water_electric', '水电维修'),
@@ -85,6 +120,7 @@ class Repair(models.Model):
     status = models.CharField("状态", max_length=20, choices=STATUS_CHOICES, default='pending')
     
     processor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="处理人", related_name="handled_repairs", limit_choices_to={'role': 'staff'})
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="委外供应商", related_name="repairs")
     feedback = models.TextField("物业处理反馈", blank=True, null=True)
     
     submit_time = models.DateTimeField("提交时间", auto_now_add=True)

@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -492,3 +492,68 @@ class ContractAttachmentDeleteView(LoginRequiredMixin, StaffRequiredMixin, View)
         attachment.delete()
         messages.success(request, "附件删除成功！")
         return redirect(reverse('contract_detail', kwargs={'pk': contract_pk}))
+
+
+# --- 供应商管理 ---
+class SupplierListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = Supplier
+    template_name = 'management/supplier_list.html'
+    context_object_name = 'suppliers'
+
+    def get_queryset(self):
+        qs = Supplier.objects.all()
+        service_category = self.request.GET.get('service_category')
+        cooperation_status = self.request.GET.get('cooperation_status')
+        if service_category:
+            qs = qs.filter(service_category=service_category)
+        if cooperation_status:
+            qs = qs.filter(cooperation_status=cooperation_status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['service_categories'] = Supplier.SERVICE_CATEGORY_CHOICES
+        context['cooperation_statuses'] = Supplier.COOPERATION_STATUS_CHOICES
+        return context
+
+
+class SupplierCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = Supplier
+    form_class = SupplierForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('supplier_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "供应商创建成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "新增供应商"
+        return context
+
+
+class SupplierUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = Supplier
+    form_class = SupplierForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('supplier_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "供应商信息更新成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑供应商"
+        return context
+
+
+class SupplierDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = Supplier
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('supplier_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "供应商删除成功！")
+        return super().delete(request, *args, **kwargs)

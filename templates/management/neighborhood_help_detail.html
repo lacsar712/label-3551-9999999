@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}帖子详情 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">帖子详情</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'neighborhood_help_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+        {% if can_delete %}
+        <a href="{% url 'neighborhood_help_delete' post.id %}" class="btn btn-sm btn-outline-danger ms-2">删除帖子</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    {% if post.post_type == 'borrow' %}
+                    <span class="badge bg-warning text-dark">求借</span>
+                    {% elif post.post_type == 'gift' %}
+                    <span class="badge bg-success">赠送</span>
+                    {% else %}
+                    <span class="badge bg-info">问询</span>
+                    {% endif %}
+                    <h5 class="mb-0 fw-bold">{{ post.title }}</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                    <div>
+                        <span class="fw-bold">{{ post.author.username }}</span>
+                        <span class="text-muted ms-3">发布于 {{ post.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    {% if post.show_contact and post.author.phone %}
+                    <span class="badge bg-primary">联系方式：{{ post.author.phone }}</span>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    {{ post.content|linebreaksbr }}
+                </div>
+            </div>
+        </div>
+
+        {% if can_reply %}
+        <div class="card shadow-sm border-primary mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">我来帮忙</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'neighborhood_help_reply' post.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        {{ reply_form.content }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">提交留言</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">留言互动 ({{ replies.count }})</h6>
+                {% if is_author %}
+                <span class="badge bg-success">您是发帖人</span>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if replies %}
+                <div class="list-group list-group-flush">
+                    {% for reply in replies %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <strong>{{ reply.replier.username }}</strong>
+                                {% if reply.replier.phone %}
+                                <span class="text-muted ms-2 small">联系方式：{{ reply.replier.phone }}</span>
+                                {% endif %}
+                            </div>
+                            <span class="text-muted small">{{ reply.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <p class="mb-0">{{ reply.content|linebreaksbr }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">暂无留言</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

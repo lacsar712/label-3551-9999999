@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -328,3 +328,29 @@ class TemporaryParkingReviewForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['status'].required = True
         self.fields['status'].empty_label = None
+
+
+class NeighborhoodHelpPostForm(forms.ModelForm):
+    class Meta:
+        model = NeighborhoodHelpPost
+        fields = ['post_type', 'title', 'content', 'show_contact']
+        widgets = {
+            'post_type': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入帖子标题'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 6, 'placeholder': '请详细描述您的需求或提供的帮助'}),
+            'show_contact': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['post_type'].empty_label = "请选择帖子类型"
+        self.fields['show_contact'].help_text = "勾选后其他业主可看到您的联系方式"
+
+
+class NeighborhoodHelpReplyForm(forms.ModelForm):
+    class Meta:
+        model = NeighborhoodHelpReply
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请留下您的简短留言或联系方式'}),
+        }

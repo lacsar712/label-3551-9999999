@@ -553,3 +553,46 @@ class TemporaryParkingPermit(models.Model):
             app.save(update_fields=['status', 'updated_at'])
             return True
         return False
+
+
+class NeighborhoodHelpPost(models.Model):
+    TYPE_CHOICES = (
+        ('borrow', '求借'),
+        ('gift', '赠送'),
+        ('inquiry', '问询'),
+    )
+
+    post_type = models.CharField("帖子类型", max_length=20, choices=TYPE_CHOICES)
+    title = models.CharField("标题", max_length=200)
+    content = models.TextField("正文")
+    show_contact = models.BooleanField("是否公开联系方式", default=False)
+
+    author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="发帖人", related_name="help_posts")
+    created_at = models.DateTimeField("发布时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "邻里互助帖子"
+        verbose_name_plural = "邻里互助管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.get_post_type_display()}] {self.title}"
+
+    def reply_count(self):
+        return self.replies.count()
+
+
+class NeighborhoodHelpReply(models.Model):
+    post = models.ForeignKey(NeighborhoodHelpPost, on_delete=models.CASCADE, verbose_name="所属帖子", related_name="replies")
+    content = models.TextField("留言内容")
+    replier = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="留言人", related_name="help_replies")
+    created_at = models.DateTimeField("留言时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "邻里互助留言"
+        verbose_name_plural = "邻里互助留言"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.replier.username} - {self.content[:30]}"

@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -1278,3 +1278,96 @@ class TemporaryParkingPermitDetailView(LoginRequiredMixin, StaffRequiredMixin, D
         end_datetime = datetime.combine(app.visit_date, app.stay_end)
         context['is_valid_now'] = permit.status == 'active' and today == app.visit_date and now <= end_datetime
         return context
+
+
+# --- 邻里互助 ---
+class NeighborhoodHelpListView(LoginRequiredMixin, ListView):
+    model = NeighborhoodHelpPost
+    template_name = 'management/neighborhood_help_list.html'
+    context_object_name = 'posts'
+
+    def get_queryset(self):
+        qs = NeighborhoodHelpPost.objects.all()
+        post_type = self.request.GET.get('post_type')
+        if post_type:
+            qs = qs.filter(post_type=post_type)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['post_types'] = NeighborhoodHelpPost.TYPE_CHOICES
+        context['current_post_type'] = self.request.GET.get('post_type', '')
+        context['total_count'] = NeighborhoodHelpPost.objects.count()
+        context['borrow_count'] = NeighborhoodHelpPost.objects.filter(post_type='borrow').count()
+        context['gift_count'] = NeighborhoodHelpPost.objects.filter(post_type='gift').count()
+        context['inquiry_count'] = NeighborhoodHelpPost.objects.filter(post_type='inquiry').count()
+        return context
+
+
+class NeighborhoodHelpCreateView(LoginRequiredMixin, OwnerRequiredMixin, CreateView):
+    model = NeighborhoodHelpPost
+    form_class = NeighborhoodHelpPostForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('neighborhood_help_list')
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        messages.success(self.request, "帖子发布成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "发布邻里互助帖子"
+        return context
+
+
+class NeighborhoodHelpDetailView(LoginRequiredMixin, DetailView):
+    model = NeighborhoodHelpPost
+    template_name = 'management/neighborhood_help_detail.html'
+    context_object_name = 'post'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        post = context['post']
+        context['replies'] = post.replies.all()
+        context['reply_form'] = NeighborhoodHelpReplyForm()
+        context['is_author'] = self.request.user == post.author
+        context['can_delete'] = self.request.user.role in ['admin', 'staff'] or self.request.user == post.author
+        context['can_reply'] = self.request.user.role == 'owner' and self.request.user != post.author
+        return context
+
+
+class NeighborhoodHelpDeleteView(LoginRequiredMixin, DeleteView):
+    model = NeighborhoodHelpPost
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('neighborhood_help_list')
+
+    def test_func(self):
+        post = self.get_object()
+        return self.request.user.role in ['admin', 'staff'] or self.request.user == post.author
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "帖子删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+class NeighborhoodHelpReplyView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        post = get_object_or_404(NeighborhoodHelpPost, pk=pk)
+        if request.user.role != 'owner':
+            messages.error(request, "仅业主可以留言！")
+            return redirect(reverse('neighborhood_help_detail', kwargs={'pk': pk}))
+        if request.user == post.author:
+            messages.error(request, "不能给自己的帖子留言！")
+            return redirect(reverse('neighborhood_help_detail', kwargs={'pk': pk}))
+
+        form = NeighborhoodHelpReplyForm(request.POST)
+        if form.is_valid():
+            reply = form.save(commit=False)
+            reply.post = post
+            reply.replier = request.user
+            reply.save()
+            messages.success(request, "留言提交成功！")
+        else:
+            messages.error(request, "留言内容不能为空！")
+        return redirect(reverse('neighborhood_help_detail', kwargs={'pk': pk}))

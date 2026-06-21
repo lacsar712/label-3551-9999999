@@ -103,4 +103,11 @@ urlpatterns = [
     path('temporary-parking/review/<int:pk>/', views.TemporaryParkingReviewView.as_view(), name='temporary_parking_review'),
     path('temporary-parking/gate-query/', views.TemporaryParkingGateQueryView.as_view(), name='temporary_parking_gate_query'),
     path('temporary-parking/permit/<int:pk>/', views.TemporaryParkingPermitDetailView.as_view(), name='temporary_parking_permit_detail'),
+
+    # 邻里互助
+    path('neighborhood-help/', views.NeighborhoodHelpListView.as_view(), name='neighborhood_help_list'),
+    path('neighborhood-help/add/', views.NeighborhoodHelpCreateView.as_view(), name='neighborhood_help_add'),
+    path('neighborhood-help/<int:pk>/', views.NeighborhoodHelpDetailView.as_view(), name='neighborhood_help_detail'),
+    path('neighborhood-help/<int:pk>/delete/', views.NeighborhoodHelpDeleteView.as_view(), name='neighborhood_help_delete'),
+    path('neighborhood-help/<int:pk>/reply/', views.NeighborhoodHelpReplyView.as_view(), name='neighborhood_help_reply'),
 ]

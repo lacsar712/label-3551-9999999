@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}邻里互助 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">邻里互助</h1>
+    {% if request.user.role == 'owner' %}
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'neighborhood_help_add' %}" class="btn btn-sm btn-primary">发布帖子</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card text-bg-primary shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">全部帖子</h5>
+                <p class="card-text fs-2">{{ total_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-warning shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">求借</h5>
+                <p class="card-text fs-2">{{ borrow_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-success shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">赠送</h5>
+                <p class="card-text fs-2">{{ gift_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-info shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">问询</h5>
+                <p class="card-text fs-2">{{ inquiry_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">帖子类型</label>
+                <select name="post_type" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, value in post_types %}
+                    <option value="{{ key }}" {% if current_post_type == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">查询</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'neighborhood_help_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        {% if posts %}
+        <div class="list-group list-group-flush">
+            {% for post in posts %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            {% if post.post_type == 'borrow' %}
+                            <span class="badge bg-warning text-dark">求借</span>
+                            {% elif post.post_type == 'gift' %}
+                            <span class="badge bg-success">赠送</span>
+                            {% else %}
+                            <span class="badge bg-info">问询</span>
+                            {% endif %}
+                            <h6 class="mb-0 fw-bold">{{ post.title }}</h6>
+                        </div>
+                        <p class="mb-2 text-muted small" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            {{ post.content }}
+                        </p>
+                        <div class="d-flex align-items-center gap-3 small text-muted">
+                            <span>发帖人：{{ post.author.username }}</span>
+                            <span>发布时间：{{ post.created_at|date:"Y-m-d H:i" }}</span>
+                            <span>留言：{{ post.reply_count }} 条</span>
+                            {% if post.show_contact and post.author.phone %}
+                            <span class="text-primary">联系方式：{{ post.author.phone }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="ms-3 d-flex gap-1">
+                        <a href="{% url 'neighborhood_help_detail' post.id %}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' or request.user == post.author %}
+                        <a href="{% url 'neighborhood_help_delete' post.id %}" class="btn btn-sm btn-outline-danger">删除</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <p class="fs-4">暂无邻里互助帖子</p>
+            {% if request.user.role == 'owner' %}
+            <a href="{% url 'neighborhood_help_add' %}" class="btn btn-primary">发布第一条帖子</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

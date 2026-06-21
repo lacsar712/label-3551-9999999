@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -1100,3 +1100,181 @@ class ClaimRejectView(LoginRequiredMixin, StaffRequiredMixin, View):
         claim.save(update_fields=['status', 'handler', 'updated_at'])
         messages.success(request, "认领申请已驳回！")
         return redirect(reverse('lost_item_detail', kwargs={'pk': claim.lost_item.pk}))
+
+
+class OwnerRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.role == 'owner'
+
+
+class TemporaryParkingApplicationListView(LoginRequiredMixin, ListView):
+    model = TemporaryParkingApplication
+    template_name = 'management/temporary_parking_list.html'
+    context_object_name = 'applications'
+
+    def get_queryset(self):
+        from django.utils import timezone
+        now = timezone.now()
+        qs = TemporaryParkingApplication.objects.all()
+        if self.request.user.role == 'owner':
+            qs = qs.filter(applicant=self.request.user)
+        for app in qs:
+            app.current_status = app.get_current_status()
+            if app.status == 'approved' and app.current_status == 'expired':
+                app.update_expired_status()
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs.order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['statuses'] = TemporaryParkingApplication.STATUS_CHOICES
+        context['current_status'] = self.request.GET.get('status', '')
+        return context
+
+
+class TemporaryParkingApplicationCreateView(LoginRequiredMixin, OwnerRequiredMixin, CreateView):
+    model = TemporaryParkingApplication
+    form_class = TemporaryParkingApplicationForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('temporary_parking_list')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['owner'] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.applicant = self.request.user
+        messages.success(self.request, "临时停车申请提交成功，请等待物业审核！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "临时停车申请"
+        return context
+
+
+class TemporaryParkingApplicationDetailView(LoginRequiredMixin, DetailView):
+    model = TemporaryParkingApplication
+    template_name = 'management/temporary_parking_detail.html'
+    context_object_name = 'application'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        app = context['application']
+        app.current_status = app.get_current_status()
+        if app.status == 'approved' and app.current_status == 'expired':
+            app.update_expired_status()
+        if hasattr(app, 'permit'):
+            app.permit.update_status_if_expired()
+            context['permit'] = app.permit
+        context['can_review'] = self.request.user.role in ['admin', 'staff'] and app.status == 'pending'
+        return context
+
+
+class TemporaryParkingReviewListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = TemporaryParkingApplication
+    template_name = 'management/temporary_parking_review_list.html'
+    context_object_name = 'applications'
+
+    def get_queryset(self):
+        qs = TemporaryParkingApplication.objects.filter(status='pending').order_by('-created_at')
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pending_count'] = TemporaryParkingApplication.objects.filter(status='pending').count()
+        context['approved_count'] = TemporaryParkingApplication.objects.filter(status='approved').count()
+        context['rejected_count'] = TemporaryParkingApplication.objects.filter(status='rejected').count()
+        context['expired_count'] = TemporaryParkingApplication.objects.filter(status='expired').count()
+        return context
+
+
+class TemporaryParkingReviewView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = TemporaryParkingApplication
+    form_class = TemporaryParkingReviewForm
+    template_name = 'management/temporary_parking_review.html'
+    success_url = reverse_lazy('temporary_parking_review_list')
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if obj.status != 'pending':
+            messages.error(self.request, "该申请已处理！")
+            from django.http import HttpResponseRedirect
+            return HttpResponseRedirect(reverse('temporary_parking_review_list'))
+        return obj
+
+    def form_valid(self, form):
+        from django.utils import timezone
+        from datetime import datetime
+        form.instance.reviewer = self.request.user
+        form.instance.reviewed_at = timezone.now()
+        response = super().form_valid(form)
+        if form.instance.status == 'approved':
+            permit_no = f"TP{datetime.now().strftime('%Y%m%d')}{form.instance.pk:06d}"
+            TemporaryParkingPermit.objects.create(
+                application=form.instance,
+                permit_no=permit_no,
+                status='active'
+            )
+            messages.success(self.request, "审核通过，停车许可已生成！")
+        else:
+            messages.success(self.request, "审核已驳回！")
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "审核临时停车申请"
+        context['application'] = self.get_object()
+        return context
+
+
+class TemporaryParkingGateQueryView(LoginRequiredMixin, StaffRequiredMixin, TemplateView):
+    template_name = 'management/temporary_parking_gate_query.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        license_plate = self.request.GET.get('license_plate', '').strip()
+        context['license_plate'] = license_plate
+        if license_plate:
+            from datetime import date, datetime, time
+            today = date.today()
+            now = datetime.now()
+            permits = TemporaryParkingPermit.objects.filter(
+                application__license_plate__icontains=license_plate,
+                status='active'
+            ).select_related('application')
+            valid_permits = []
+            for permit in permits:
+                permit.update_status_if_expired()
+                app = permit.application
+                end_datetime = datetime.combine(app.visit_date, app.stay_end)
+                if permit.status == 'active' and today == app.visit_date and now <= end_datetime:
+                    valid_permits.append(permit)
+            context['permits'] = valid_permits
+            context['search_performed'] = True
+        return context
+
+
+class TemporaryParkingPermitDetailView(LoginRequiredMixin, StaffRequiredMixin, DetailView):
+    model = TemporaryParkingPermit
+    template_name = 'management/temporary_parking_permit_detail.html'
+    context_object_name = 'permit'
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        obj.update_status_if_expired()
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        permit = context['permit']
+        from datetime import date, datetime
+        today = date.today()
+        now = datetime.now()
+        app = permit.application
+        end_datetime = datetime.combine(app.visit_date, app.stay_end)
+        context['is_valid_now'] = permit.status == 'active' and today == app.visit_date and now <= end_datetime
+        return context

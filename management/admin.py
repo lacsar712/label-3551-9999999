@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit
 
 class CustomUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
@@ -61,3 +61,21 @@ class LostItemAdmin(admin.ModelAdmin):
 
 admin.site.register(LostItem, LostItemAdmin)
 admin.site.register(ClaimApplication)
+
+
+class TemporaryParkingPermitInline(admin.StackedInline):
+    model = TemporaryParkingPermit
+    extra = 0
+    readonly_fields = ('permit_no', 'status', 'generated_at')
+
+
+class TemporaryParkingApplicationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'applicant', 'license_plate', 'visit_date', 'stay_start', 'stay_end', 'status', 'created_at')
+    list_filter = ('status', 'visit_date')
+    search_fields = ('license_plate', 'applicant__username', 'visit_reason', 'contact_phone')
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = [TemporaryParkingPermitInline]
+
+
+admin.site.register(TemporaryParkingApplication, TemporaryParkingApplicationAdmin)
+admin.site.register(TemporaryParkingPermit)

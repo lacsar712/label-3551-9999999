@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -279,3 +279,52 @@ class ClaimConfirmForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['claimant'].required = True
         self.fields['claim_date'].required = True
+
+
+class TemporaryParkingApplicationForm(forms.ModelForm):
+    class Meta:
+        model = TemporaryParkingApplication
+        fields = ['unit', 'license_plate', 'visit_date', 'stay_start', 'stay_end', 'visit_reason', 'contact_phone']
+        widgets = {
+            'unit': forms.Select(attrs={'class': 'form-select'}),
+            'license_plate': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入车牌号，如：京A12345'}),
+            'visit_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'stay_start': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'stay_end': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'visit_reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入来访事由'}),
+            'contact_phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入联系人电话'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        owner = kwargs.pop('owner', None)
+        super().__init__(*args, **kwargs)
+        if owner:
+            self.fields['unit'].queryset = Unit.objects.filter(owner=owner)
+        self.fields['unit'].empty_label = "请选择关联房屋"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        stay_start = cleaned_data.get('stay_start')
+        stay_end = cleaned_data.get('stay_end')
+        visit_date = cleaned_data.get('visit_date')
+        from datetime import date, datetime
+        if visit_date and visit_date < date.today():
+            raise forms.ValidationError("来访日期不能早于今日")
+        if stay_start and stay_end and stay_end <= stay_start:
+            raise forms.ValidationError("停留结束时间必须晚于开始时间")
+        return cleaned_data
+
+
+class TemporaryParkingReviewForm(forms.ModelForm):
+    class Meta:
+        model = TemporaryParkingApplication
+        fields = ['status', 'review_remark']
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-select'}, choices=[('approved', '已通过'), ('rejected', '已驳回')]),
+            'review_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入审核备注（可选）'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].required = True
+        self.fields['status'].empty_label = None

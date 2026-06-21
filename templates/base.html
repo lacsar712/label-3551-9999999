@@ -85,11 +85,17 @@
                         class="{% if 'vote' in request.resolver_match.url_name %}active{% endif %}">投票管理</a>
                     <a href="{% url 'lost_item_list' %}"
                         class="{% if 'lost_item' in request.resolver_match.url_name %}active{% endif %}">失物招领</a>
+                    <a href="{% url 'temporary_parking_review_list' %}"
+                        class="{% if 'temporary_parking_review' in request.resolver_match.url_name %}active{% endif %}">停车审核</a>
+                    <a href="{% url 'temporary_parking_gate_query' %}"
+                        class="{% if 'temporary_parking_gate_query' in request.resolver_match.url_name %}active{% endif %}">门岗查询</a>
                     {% else %}
                     <a href="{% url 'vote_list' %}"
                         class="{% if 'vote' in request.resolver_match.url_name %}active{% endif %}">社区投票</a>
                     <a href="{% url 'lost_item_list' %}"
                         class="{% if 'lost_item' in request.resolver_match.url_name %}active{% endif %}">失物招领</a>
+                    <a href="{% url 'temporary_parking_list' %}"
+                        class="{% if 'temporary_parking' in request.resolver_match.url_name %}active{% endif %}">临时停车</a>
                     {% endif %}
 
                     <hr class="text-white">

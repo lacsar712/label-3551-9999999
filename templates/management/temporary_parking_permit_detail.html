@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}停车许可详情 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">停车许可详情</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'temporary_parking_gate_query' %}" class="btn btn-sm btn-outline-secondary">返回查询</a>
+    </div>
+</div>
+
+<div class="text-center mb-4">
+    {% if is_valid_now %}
+    <span class="badge bg-success fs-3 px-4 py-2">有效</span>
+    {% else %}
+    <span class="badge bg-secondary fs-3 px-4 py-2">已失效</span>
+    {% endif %}
+</div>
+
+{% if is_valid_now %}
+<div class="alert alert-success text-center mb-3" role="alert">
+    <strong>该许可当前有效，可放行</strong>
+</div>
+{% else %}
+<div class="alert alert-secondary text-center mb-3" role="alert">
+    <strong>该许可已失效</strong>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">许可信息</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th class="text-end text-muted" style="width: 120px;">许可编号</th>
+                        <td class="fw-bold text-success">{{ permit.permit_no }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">生成时间</th>
+                        <td>{{ permit.generated_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">当前状态</th>
+                        <td>
+                            {% if is_valid_now %}
+                            <span class="badge bg-success">有效</span>
+                            {% else %}
+                            <span class="badge bg-secondary">已失效</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">申请信息</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th class="text-end text-muted" style="width: 120px;">车牌号</th>
+                        <td class="fw-bold">{{ permit.application.license_plate }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">来访日期</th>
+                        <td>{{ permit.application.visit_date|date:"Y-m-d" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">停留时段</th>
+                        <td>{{ permit.application.stay_start|time:"H:i" }} - {{ permit.application.stay_end|time:"H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">来访事由</th>
+                        <td>{{ permit.application.visit_reason|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">联系人电话</th>
+                        <td>{{ permit.application.contact_phone }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">申请人</th>
+                        <td>{{ permit.application.applicant.username }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">关联房屋</th>
+                        <td>{{ permit.application.unit.floor.building.estate.name }} - {{ permit.application.unit.floor.building.name }} - {{ permit.application.unit.name }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

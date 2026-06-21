@@ -95,4 +95,12 @@ urlpatterns = [
     path('lost-item/<int:pk>/claim/', views.ClaimCreateView.as_view(), name='claim_create'),
     path('claim/<int:pk>/confirm/', views.ClaimConfirmView.as_view(), name='claim_confirm'),
     path('claim/<int:pk>/reject/', views.ClaimRejectView.as_view(), name='claim_reject'),
+
+    path('temporary-parking/', views.TemporaryParkingApplicationListView.as_view(), name='temporary_parking_list'),
+    path('temporary-parking/apply/', views.TemporaryParkingApplicationCreateView.as_view(), name='temporary_parking_apply'),
+    path('temporary-parking/<int:pk>/', views.TemporaryParkingApplicationDetailView.as_view(), name='temporary_parking_detail'),
+    path('temporary-parking/review/', views.TemporaryParkingReviewListView.as_view(), name='temporary_parking_review_list'),
+    path('temporary-parking/review/<int:pk>/', views.TemporaryParkingReviewView.as_view(), name='temporary_parking_review'),
+    path('temporary-parking/gate-query/', views.TemporaryParkingGateQueryView.as_view(), name='temporary_parking_gate_query'),
+    path('temporary-parking/permit/<int:pk>/', views.TemporaryParkingPermitDetailView.as_view(), name='temporary_parking_permit_detail'),
 ]

@@ -460,3 +460,96 @@ class VoteRecord(models.Model):
         verbose_name = "业主投票参与记录"
         verbose_name_plural = "业主投票参与记录"
         unique_together = ['vote', 'voter']
+
+
+class TemporaryParkingApplication(models.Model):
+    STATUS_CHOICES = (
+        ('pending', '待审核'),
+        ('approved', '已通过'),
+        ('rejected', '已驳回'),
+        ('expired', '已失效'),
+    )
+
+    applicant = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="申请人", related_name="parking_applications", limit_choices_to={'role': 'owner'})
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, verbose_name="关联房屋", related_name="parking_applications")
+    license_plate = models.CharField("车牌号", max_length=20)
+    visit_date = models.DateField("来访日期")
+    stay_start = models.TimeField("停留开始时间")
+    stay_end = models.TimeField("停留结束时间")
+    visit_reason = models.TextField("来访事由")
+    contact_phone = models.CharField("联系人电话", max_length=20)
+    status = models.CharField("申请状态", max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="审核人", related_name="reviewed_parking_applications", limit_choices_to={'role__in': ['admin', 'staff']})
+    review_remark = models.TextField("审核备注", blank=True, null=True)
+    reviewed_at = models.DateTimeField("审核时间", null=True, blank=True)
+
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "临时停车申请"
+        verbose_name_plural = "临时停车申请管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"停车申请 #{self.id} - {self.license_plate}"
+
+    def update_expired_status(self):
+        from datetime import date, time, datetime
+        now = datetime.now()
+        end_datetime = datetime.combine(self.visit_date, self.stay_end)
+        if self.status == 'approved' and now > end_datetime:
+            self.status = 'expired'
+            self.save(update_fields=['status', 'updated_at'])
+            return True
+        return False
+
+    def get_current_status(self):
+        from datetime import date, time, datetime
+        now = datetime.now()
+        end_datetime = datetime.combine(self.visit_date, self.stay_end)
+        if self.status == 'approved' and now > end_datetime:
+            return 'expired'
+        return self.status
+
+
+class TemporaryParkingPermit(models.Model):
+    STATUS_CHOICES = (
+        ('active', '有效'),
+        ('expired', '已失效'),
+    )
+
+    application = models.OneToOneField(TemporaryParkingApplication, on_delete=models.CASCADE, verbose_name="关联申请", related_name="permit")
+    permit_no = models.CharField("许可编号", max_length=50, unique=True)
+    status = models.CharField("许可状态", max_length=10, choices=STATUS_CHOICES, default='active')
+    generated_at = models.DateTimeField("生成时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "临时停车许可"
+        verbose_name_plural = "临时停车许可管理"
+        ordering = ['-generated_at']
+
+    def __str__(self):
+        return f"停车许可 {self.permit_no} - {self.application.license_plate}"
+
+    def is_valid_today(self):
+        from datetime import date, time, datetime
+        today = date.today()
+        now = datetime.now()
+        app = self.application
+        end_datetime = datetime.combine(app.visit_date, app.stay_end)
+        return self.status == 'active' and today == app.visit_date and now <= end_datetime
+
+    def update_status_if_expired(self):
+        from datetime import date, time, datetime
+        now = datetime.now()
+        app = self.application
+        end_datetime = datetime.combine(app.visit_date, app.stay_end)
+        if self.status == 'active' and now > end_datetime:
+            self.status = 'expired'
+            self.save(update_fields=['status'])
+            app.status = 'expired'
+            app.save(update_fields=['status', 'updated_at'])
+            return True
+        return False

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}临时停车申请 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">临时停车申请</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'temporary_parking_apply' %}" class="btn btn-sm btn-primary">提交申请</a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body py-2">
+        <ul class="nav nav-pills">
+            <li class="nav-item">
+                <a class="nav-link {% if not current_status %}active{% endif %}" href="{% url 'temporary_parking_list' %}">全部</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if current_status == 'pending' %}active{% endif %}" href="?status=pending">待审核</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if current_status == 'approved' %}active{% endif %}" href="?status=approved">已通过</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if current_status == 'rejected' %}active{% endif %}" href="?status=rejected">已驳回</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if current_status == 'expired' %}active{% endif %}" href="?status=expired">已失效</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>申请编号</th>
+                        <th>车牌号</th>
+                        <th>来访日期</th>
+                        <th>停留时段</th>
+                        <th>申请时间</th>
+                        <th>当前状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for application in applications %}
+                    <tr>
+                        <td><span class="fw-bold">#{{ application.id }}</span></td>
+                        <td>{{ application.license_plate }}</td>
+                        <td>{{ application.visit_date|date:"Y-m-d" }}</td>
+                        <td>{{ application.stay_start|time:"H:i" }} - {{ application.stay_end|time:"H:i" }}</td>
+                        <td>{{ application.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if application.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">待审核</span>
+                            {% elif application.status == 'approved' %}
+                            <span class="badge bg-success">已通过</span>
+                            {% elif application.status == 'rejected' %}
+                            <span class="badge bg-danger">已驳回</span>
+                            {% elif application.status == 'expired' %}
+                            <span class="badge bg-secondary">已失效</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'temporary_parking_detail' application.id %}" class="btn btn-sm btn-outline-info">详情</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">暂无临时停车申请记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

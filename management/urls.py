@@ -85,4 +85,14 @@ urlpatterns = [
     path('vote/<int:pk>/', views.VoteDetailView.as_view(), name='vote_detail'),
     path('vote/<int:pk>/submit/', views.VoteSubmitView.as_view(), name='vote_submit'),
     path('vote/<int:pk>/delete/', views.VoteDeleteView.as_view(), name='vote_delete'),
+
+    # 失物招领
+    path('lost-item/', views.LostItemListView.as_view(), name='lost_item_list'),
+    path('lost-item/add/', views.LostItemCreateView.as_view(), name='lost_item_add'),
+    path('lost-item/<int:pk>/', views.LostItemDetailView.as_view(), name='lost_item_detail'),
+    path('lost-item/<int:pk>/edit/', views.LostItemUpdateView.as_view(), name='lost_item_edit'),
+    path('lost-item/<int:pk>/delete/', views.LostItemDeleteView.as_view(), name='lost_item_delete'),
+    path('lost-item/<int:pk>/claim/', views.ClaimCreateView.as_view(), name='claim_create'),
+    path('claim/<int:pk>/confirm/', views.ClaimConfirmView.as_view(), name='claim_confirm'),
+    path('claim/<int:pk>/reject/', views.ClaimRejectView.as_view(), name='claim_reject'),
 ]

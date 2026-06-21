@@ -396,6 +396,61 @@ class VoteBallot(models.Model):
         verbose_name_plural = "投票记录"
 
 
+class LostItem(models.Model):
+    STATUS_CHOICES = (
+        ('pending', '待认领'),
+        ('claimed', '已认领'),
+    )
+
+    name = models.CharField("物品名称", max_length=100)
+    found_location = models.CharField("拾取地点", max_length=200)
+    found_date = models.DateField("拾取日期")
+    description = models.TextField("物品描述", blank=True, null=True)
+    storage_location = models.CharField("存放地点", max_length=200)
+    status = models.CharField("当前状态", max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    reporter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="登记人", related_name="reported_lost_items", limit_choices_to={'role__in': ['admin', 'staff']})
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "失物招领"
+        verbose_name_plural = "失物招领管理"
+        ordering = ['-found_date', '-created_at']
+
+    def __str__(self):
+        return f"失物 #{self.id} - {self.name}"
+
+
+class ClaimApplication(models.Model):
+    STATUS_CHOICES = (
+        ('pending', '待审核'),
+        ('approved', '已通过'),
+        ('rejected', '已驳回'),
+    )
+
+    lost_item = models.ForeignKey(LostItem, on_delete=models.CASCADE, verbose_name="关联失物", related_name="claims")
+    applicant = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="认领申请人", related_name="claim_applications")
+    claim_description = models.TextField("认领说明")
+    contact_info = models.CharField("联系方式", max_length=100)
+    status = models.CharField("审核状态", max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    claimant = models.CharField("认领人", max_length=100, blank=True, null=True)
+    claim_date = models.DateField("认领日期", blank=True, null=True)
+    handler = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="经办人", related_name="handled_claims", limit_choices_to={'role__in': ['admin', 'staff']})
+
+    created_at = models.DateTimeField("申请时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "认领申请"
+        verbose_name_plural = "认领申请管理"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"认领申请 #{self.id} - {self.lost_item.name}"
+
+
 class VoteRecord(models.Model):
     vote = models.ForeignKey(Vote, on_delete=models.CASCADE, verbose_name="所属投票", related_name="voter_records")
     voter = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="投票业主", related_name="vote_participations")

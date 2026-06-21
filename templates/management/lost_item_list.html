@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}失物招领 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">失物招领</h1>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'lost_item_add' %}" class="btn btn-sm btn-primary">发布拾获物品</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card text-bg-warning shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">待认领物品</h5>
+                <p class="card-text fs-2">{{ pending_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-success shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">已认领物品</h5>
+                <p class="card-text fs-2">{{ claimed_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if request.user.role == 'admin' or request.user.role == 'staff' %}
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">认领状态</label>
+                <select name="status" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, value in statuses %}
+                    <option value="{{ key }}" {% if current_status == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">查询</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'lost_item_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>物品名称</th>
+                        <th>拾取地点</th>
+                        <th>拾取日期</th>
+                        <th>存放地点</th>
+                        <th>状态</th>
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                        <th>登记人</th>
+                        <th>操作</th>
+                        {% else %}
+                        <th>操作</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in lost_items %}
+                    <tr>
+                        <td class="fw-bold">{{ item.name }}</td>
+                        <td>{{ item.found_location }}</td>
+                        <td>{{ item.found_date|date:"Y-m-d" }}</td>
+                        <td>{{ item.storage_location }}</td>
+                        <td>
+                            {% if item.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">待认领</span>
+                            {% else %}
+                            <span class="badge bg-success">已认领</span>
+                            {% endif %}
+                        </td>
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                        <td>{{ item.reporter.username|default:"-" }}</td>
+                        <td>
+                            <a href="{% url 'lost_item_detail' item.id %}" class="btn btn-sm btn-outline-info">详情</a>
+                            <a href="{% url 'lost_item_edit' item.id %}" class="btn btn-sm btn-outline-primary">编辑</a>
+                            <a href="{% url 'lost_item_delete' item.id %}" class="btn btn-sm btn-outline-danger">删除</a>
+                        </td>
+                        {% else %}
+                        <td>
+                            <a href="{% url 'lost_item_detail' item.id %}" class="btn btn-sm btn-outline-info">查看详情</a>
+                            {% if item.status == 'pending' %}
+                            <a href="{% url 'claim_create' item.id %}" class="btn btn-sm btn-warning">申请认领</a>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if request.user.role == 'admin' or request.user.role == 'staff' %}7{% else %}6{% endif %}" class="text-center py-4 text-muted">暂无失物招领记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

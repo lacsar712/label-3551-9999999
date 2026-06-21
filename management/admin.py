@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Vote, VoteOption, VoteBallot, VoteRecord
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication
 
 class CustomUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
@@ -44,3 +44,20 @@ class VoteAdmin(admin.ModelAdmin):
 admin.site.register(Vote, VoteAdmin)
 admin.site.register(VoteBallot)
 admin.site.register(VoteRecord)
+
+
+class ClaimApplicationInline(admin.TabularInline):
+    model = ClaimApplication
+    extra = 0
+    readonly_fields = ('applicant', 'claim_description', 'contact_info', 'status', 'claimant', 'claim_date', 'handler', 'created_at')
+
+
+class LostItemAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'found_location', 'found_date', 'storage_location', 'status', 'reporter', 'created_at')
+    list_filter = ('status',)
+    search_fields = ('name', 'found_location', 'description')
+    inlines = [ClaimApplicationInline]
+
+
+admin.site.register(LostItem, LostItemAdmin)
+admin.site.register(ClaimApplication)

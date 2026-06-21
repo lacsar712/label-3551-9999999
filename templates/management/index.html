@@ -94,6 +94,17 @@
             </div>
         </a>
     </div>
+    <div class="col-md-3">
+        <a href="{% url 'lost_item_list' %}?status=pending" class="text-decoration-none">
+            <div class="card shadow-sm h-100 border-info">
+                <div class="card-body text-info">
+                    <h5 class="card-title">待认领失物</h5>
+                    <p class="card-text fs-2">{{ pending_lost_items_count|default:"0" }}</p>
+                    <p class="card-text small">待审核认领: {{ pending_claims_count|default:"0" }} &rarr;</p>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
 
 {% if high_risk_open %}
@@ -323,6 +334,49 @@
                             </td>
                             <td>
                                 <a href="{% url 'vote_detail' v.id %}" class="btn btn-sm btn-warning">立即参与</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if pending_lost_items %}
+<div class="row g-4 mt-1">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-info">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <span class="badge bg-white text-info me-2">!</span>
+                    失物招领 - 待认领物品
+                </h5>
+                <a href="{% url 'lost_item_list' %}" class="btn btn-sm btn-outline-light">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>物品名称</th>
+                            <th>拾取地点</th>
+                            <th>拾取日期</th>
+                            <th>存放地点</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in pending_lost_items %}
+                        <tr>
+                            <td class="fw-bold">{{ item.name }}</td>
+                            <td>{{ item.found_location }}</td>
+                            <td>{{ item.found_date|date:"Y-m-d" }}</td>
+                            <td>{{ item.storage_location }}</td>
+                            <td>
+                                <a href="{% url 'lost_item_detail' item.id %}" class="btn btn-sm btn-outline-info">详情</a>
+                                <a href="{% url 'claim_create' item.id %}" class="btn btn-sm btn-warning">申请认领</a>
                             </td>
                         </tr>
                         {% endfor %}

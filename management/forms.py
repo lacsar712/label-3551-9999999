@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, LostItem, ClaimApplication
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -241,3 +241,41 @@ VoteOptionFormSet = inlineformset_factory(
     Vote, VoteOption, form=VoteOptionForm,
     extra=2, min_num=2, validate_min=True, can_delete=True
 )
+
+
+class LostItemForm(forms.ModelForm):
+    class Meta:
+        model = LostItem
+        fields = ['name', 'found_location', 'found_date', 'description', 'storage_location']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入物品名称'}),
+            'found_location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入拾取地点'}),
+            'found_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入物品描述（可选）'}),
+            'storage_location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入存放地点'}),
+        }
+
+
+class ClaimApplicationForm(forms.ModelForm):
+    class Meta:
+        model = ClaimApplication
+        fields = ['claim_description', 'contact_info']
+        widgets = {
+            'claim_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': '请详细描述认领说明，如物品特征、遗失经过等'}),
+            'contact_info': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入联系方式，如手机号'}),
+        }
+
+
+class ClaimConfirmForm(forms.ModelForm):
+    class Meta:
+        model = ClaimApplication
+        fields = ['claimant', 'claim_date']
+        widgets = {
+            'claimant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '请输入认领人姓名'}),
+            'claim_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['claimant'].required = True
+        self.fields['claim_date'].required = True

@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -55,11 +55,14 @@ class IndexView(LoginRequiredMixin, TemplateView):
                 h.days_left = h.days_until_deadline()
             context['medium_risk_open_count'] = SafetyInspection.objects.filter(risk_level='medium', status='open').count()
             context['low_risk_open_count'] = SafetyInspection.objects.filter(risk_level='low', status='open').count()
+            context['pending_lost_items_count'] = LostItem.objects.filter(status='pending').count()
+            context['pending_claims_count'] = ClaimApplication.objects.filter(status='pending').count()
         else:
             context['my_units'] = Unit.objects.filter(owner=self.request.user)
             context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
             context['unpaid_fees'] = Fee.objects.filter(unit__owner=self.request.user, status='unpaid')
             context['active_unvoted'] = Vote.objects.filter(status='active').exclude(voter_records__voter=self.request.user)
+            context['pending_lost_items'] = LostItem.objects.filter(status='pending').order_by('-found_date')[:5]
         return context
 
 # --- 楼盘管理 ---
@@ -717,7 +720,7 @@ class SafetyInspectionCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateV
             inspection=self.object,
             action='create',
             operator=self.request.user,
-            remark=f'创建隐患排查记录：风险等级-{}, 区域-{}'.format(
+            remark='创建隐患排查记录：风险等级-{}, 区域-{}'.format(
                 self.object.get_risk_level_display(),
                 self.object.inspection_area
             )
@@ -782,7 +785,7 @@ class SafetyInspectionRectifyView(LoginRequiredMixin, StaffRequiredMixin, Update
             inspection=self.object,
             action='close',
             operator=self.request.user,
-            remark=f'完成整改并标记消项，整改措施：{}'.format(
+            remark='完成整改并标记消项，整改措施：{}'.format(
                 self.object.rectification_measures[:100]
             )
         )
@@ -950,3 +953,150 @@ class VoteDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, "投票删除成功！")
         return super().delete(request, *args, **kwargs)
+
+
+# --- 失物招领管理 ---
+class LostItemListView(LoginRequiredMixin, ListView):
+    model = LostItem
+    template_name = 'management/lost_item_list.html'
+    context_object_name = 'lost_items'
+
+    def get_queryset(self):
+        qs = LostItem.objects.all()
+        if self.request.user.role == 'owner':
+            qs = qs.filter(status='pending')
+
+        status = self.request.GET.get('status')
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['statuses'] = LostItem.STATUS_CHOICES
+        context['current_status'] = self.request.GET.get('status', '')
+        context['pending_count'] = LostItem.objects.filter(status='pending').count()
+        context['claimed_count'] = LostItem.objects.filter(status='claimed').count()
+        return context
+
+
+class LostItemCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = LostItem
+    form_class = LostItemForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('lost_item_list')
+
+    def form_valid(self, form):
+        form.instance.reporter = self.request.user
+        messages.success(self.request, "失物信息发布成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "发布拾获物品信息"
+        return context
+
+
+class LostItemDetailView(LoginRequiredMixin, DetailView):
+    model = LostItem
+    template_name = 'management/lost_item_detail.html'
+    context_object_name = 'lost_item'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        item = context['lost_item']
+        context['claims'] = item.claims.all()
+        if self.request.user.role == 'owner' and item.status == 'pending':
+            context['has_applied'] = item.claims.filter(applicant=self.request.user).exists()
+        return context
+
+
+class LostItemUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = LostItem
+    form_class = LostItemForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('lost_item_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "失物信息更新成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑失物信息"
+        return context
+
+
+class LostItemDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = LostItem
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('lost_item_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "失物信息删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+class ClaimCreateView(LoginRequiredMixin, CreateView):
+    model = ClaimApplication
+    form_class = ClaimApplicationForm
+    template_name = 'management/claim_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['lost_item'] = get_object_or_404(LostItem, pk=self.kwargs['pk'])
+        return context
+
+    def form_valid(self, form):
+        lost_item = get_object_or_404(LostItem, pk=self.kwargs['pk'])
+        if lost_item.status != 'pending':
+            messages.error(self.request, "该物品已不在待认领状态！")
+            return redirect(reverse('lost_item_detail', kwargs={'pk': lost_item.pk}))
+        if lost_item.claims.filter(applicant=self.request.user).exists():
+            messages.error(self.request, "您已提交过认领申请！")
+            return redirect(reverse('lost_item_detail', kwargs={'pk': lost_item.pk}))
+        form.instance.lost_item = lost_item
+        form.instance.applicant = self.request.user
+        messages.success(self.request, "认领申请提交成功，请等待物业审核！")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('lost_item_detail', kwargs={'pk': self.kwargs['pk']})
+
+
+class ClaimConfirmView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = ClaimApplication
+    form_class = ClaimConfirmForm
+    template_name = 'management/claim_form.html'
+    success_url = reverse_lazy('lost_item_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['claim'] = self.get_object()
+        context['lost_item'] = context['claim'].lost_item
+        context['is_confirm'] = True
+        return context
+
+    def form_valid(self, form):
+        form.instance.status = 'approved'
+        form.instance.handler = self.request.user
+        response = super().form_valid(form)
+        lost_item = form.instance.lost_item
+        lost_item.status = 'claimed'
+        lost_item.save(update_fields=['status', 'updated_at'])
+        form.instance.lost_item.claims.exclude(pk=form.instance.pk).update(status='rejected')
+        messages.success(self.request, "认领确认成功，物品状态已更新为已认领！")
+        return response
+
+
+class ClaimRejectView(LoginRequiredMixin, StaffRequiredMixin, View):
+    def post(self, request, pk):
+        claim = get_object_or_404(ClaimApplication, pk=pk)
+        if claim.status != 'pending':
+            messages.error(request, "该申请已处理！")
+            return redirect(reverse('lost_item_detail', kwargs={'pk': claim.lost_item.pk}))
+        claim.status = 'rejected'
+        claim.handler = request.user
+        claim.save(update_fields=['status', 'handler', 'updated_at'])
+        messages.success(request, "认领申请已驳回！")
+        return redirect(reverse('lost_item_detail', kwargs={'pk': claim.lost_item.pk}))

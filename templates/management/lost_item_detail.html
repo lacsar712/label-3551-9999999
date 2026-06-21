@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}失物详情 - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">失物详情</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'lost_item_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">物品信息</h5>
+                {% if lost_item.status == 'pending' %}
+                <span class="badge bg-warning text-dark fs-6">待认领</span>
+                {% else %}
+                <span class="badge bg-success fs-6">已认领</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th class="text-end text-muted" style="width: 120px;">物品名称</th>
+                        <td class="fw-bold">{{ lost_item.name }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">拾取地点</th>
+                        <td>{{ lost_item.found_location }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">拾取日期</th>
+                        <td>{{ lost_item.found_date|date:"Y-m-d" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">存放地点</th>
+                        <td>{{ lost_item.storage_location }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">物品描述</th>
+                        <td>{{ lost_item.description|default:"暂无描述" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">登记人</th>
+                        <td>{{ lost_item.reporter.username|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-end text-muted">发布时间</th>
+                        <td>{{ lost_item.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        {% if request.user.role == 'owner' and lost_item.status == 'pending' %}
+        <div class="card shadow-sm border-warning">
+            <div class="card-body text-center">
+                {% if has_applied %}
+                <p class="text-muted mb-2">您已提交认领申请，请耐心等待物业审核</p>
+                <span class="badge bg-info text-dark">申请审核中</span>
+                {% else %}
+                <p class="mb-3">如果您是该物品的失主，请提交认领申请</p>
+                <a href="{% url 'claim_create' lost_item.id %}" class="btn btn-warning btn-lg">申请认领</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">认领申请记录</h5>
+                {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                <span class="badge bg-secondary">{{ claims.count }} 条申请</span>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if claims %}
+                <div class="list-group list-group-flush">
+                    {% for claim in claims %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <strong>{{ claim.applicant.username }}</strong>
+                                    {% if claim.status == 'pending' %}
+                                    <span class="badge bg-warning text-dark">待审核</span>
+                                    {% elif claim.status == 'approved' %}
+                                    <span class="badge bg-success">已通过</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">已驳回</span>
+                                    {% endif %}
+                                </h6>
+                                <p class="mb-1 text-muted small">认领说明：{{ claim.claim_description }}</p>
+                                <p class="mb-1 text-muted small">联系方式：{{ claim.contact_info }}</p>
+                                {% if claim.status == 'approved' %}
+                                <p class="mb-0 small">
+                                    <span class="text-success">认领人：{{ claim.claimant }}</span> |
+                                    <span class="text-success">认领日期：{{ claim.claim_date|date:"Y-m-d" }}</span> |
+                                    <span class="text-muted">经办人：{{ claim.handler.username|default:"-" }}</span>
+                                </p>
+                                {% endif %}
+                                {% if claim.status == 'rejected' and claim.handler %}
+                                <p class="mb-0 small text-muted">经办人：{{ claim.handler.username }}</p>
+                                {% endif %}
+                                <p class="mb-0 text-muted" style="font-size: 0.75rem;">申请时间：{{ claim.created_at|date:"Y-m-d H:i" }}</p>
+                            </div>
+                            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                            {% if claim.status == 'pending' and lost_item.status == 'pending' %}
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'claim_confirm' claim.id %}" class="btn btn-sm btn-success">确认认领</a>
+                                <form method="post" action="{% url 'claim_reject' claim.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定驳回该认领申请？')">驳回</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">暂无认领申请</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

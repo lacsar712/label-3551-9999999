@@ -1,13 +1,16 @@
-from django.shortcuts import render, redirect
-from django.urls import reverse_lazy
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy, reverse
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm
+from datetime import date, timedelta
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm
 import csv
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
+import os
+from django.conf import settings
 
 class CustomLoginView(LoginView):
     template_name = 'management/login.html'
@@ -32,6 +35,12 @@ class IndexView(LoginRequiredMixin, TemplateView):
             context['owner_count'] = User.objects.filter(role='owner').count()
             context['pending_repairs'] = Repair.objects.filter(status='pending').count()
             context['unpaid_fees'] = Fee.objects.filter(status='unpaid').count()
+            today = date.today()
+            sixty_days_later = today + timedelta(days=60)
+            expiring_contracts = Contract.objects.filter(expire_date__gte=today, expire_date__lte=sixty_days_later).order_by('expire_date')
+            context['expiring_contracts_count'] = expiring_contracts.count()
+            context['expiring_contracts'] = expiring_contracts[:5]
+            context['expiring_contracts_total_amount'] = sum(c.amount for c in expiring_contracts)
         else:
             context['my_units'] = Unit.objects.filter(owner=self.request.user)
             context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
@@ -359,3 +368,127 @@ class FeeDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
     model = Fee
     template_name = 'management/confirm_delete.html'
     success_url = reverse_lazy('fee_list')
+
+
+# --- 合同管理 ---
+class ContractListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = Contract
+    template_name = 'management/contract_list.html'
+    context_object_name = 'contracts'
+
+    def get_queryset(self):
+        qs = Contract.objects.all()
+        contract_type = self.request.GET.get('contract_type')
+        if contract_type:
+            qs = qs.filter(contract_type=contract_type)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['contract_types'] = Contract.TYPE_CHOICES
+        today = date.today()
+        sixty_days_later = today + timedelta(days=60)
+        for contract in context['contracts']:
+            contract.expiring_soon = contract.expire_date >= today and contract.expire_date <= sixty_days_later
+            contract.days_left = (contract.expire_date - today).days
+            contract.days_left_str = abs(contract.days_left)
+        return context
+
+
+class ContractCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = Contract
+    form_class = ContractForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('contract_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "合同创建成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "新增合同"
+        return context
+
+
+class ContractUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = Contract
+    form_class = ContractForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('contract_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "合同更新成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑合同"
+        return context
+
+
+class ContractDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = Contract
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('contract_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "合同删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+class ContractDetailView(LoginRequiredMixin, StaffRequiredMixin, DetailView):
+    model = Contract
+    template_name = 'management/contract_detail.html'
+    context_object_name = 'contract'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['attachment_form'] = ContractAttachmentForm()
+        today = date.today()
+        sixty_days_later = today + timedelta(days=60)
+        contract = context['contract']
+        contract.expiring_soon = contract.expire_date >= today and contract.expire_date <= sixty_days_later
+        contract.days_left = (contract.expire_date - today).days
+        contract.days_left_str = abs(contract.days_left)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = ContractAttachmentForm(request.POST, request.FILES)
+        if form.is_valid():
+            attachment = form.save(commit=False)
+            attachment.contract = self.object
+            if 'file' in request.FILES:
+                uploaded_file = request.FILES['file']
+                attachment.file_name = uploaded_file.name
+            attachment.save()
+            messages.success(request, "附件上传成功！")
+            return redirect(reverse('contract_detail', kwargs={'pk': self.object.pk}))
+        context = self.get_context_data(object=self.object)
+        context['attachment_form'] = form
+        return self.render_to_response(context)
+
+
+class ContractAttachmentDownloadView(LoginRequiredMixin, StaffRequiredMixin, View):
+    def get(self, request, pk):
+        attachment = get_object_or_404(ContractAttachment, pk=pk)
+        file_path = os.path.join(settings.MEDIA_ROOT, attachment.file.name)
+        if os.path.exists(file_path):
+            response = FileResponse(open(file_path, 'rb'))
+            response['Content-Type'] = 'application/pdf'
+            response['Content-Disposition'] = f'attachment; filename="{attachment.file_name}"'
+            return response
+        messages.error(request, "文件不存在！")
+        return redirect(reverse('contract_detail', kwargs={'pk': attachment.contract.pk}))
+
+
+class ContractAttachmentDeleteView(LoginRequiredMixin, StaffRequiredMixin, View):
+    def post(self, request, pk):
+        attachment = get_object_or_404(ContractAttachment, pk=pk)
+        contract_pk = attachment.contract.pk
+        if attachment.file and os.path.exists(os.path.join(settings.MEDIA_ROOT, attachment.file.name)):
+            os.remove(os.path.join(settings.MEDIA_ROOT, attachment.file.name))
+        attachment.delete()
+        messages.success(request, "附件删除成功！")
+        return redirect(reverse('contract_detail', kwargs={'pk': contract_pk}))

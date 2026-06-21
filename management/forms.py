@@ -1,5 +1,5 @@
 from django import forms
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -89,4 +89,29 @@ class FeeForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-select'}),
             'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+
+class ContractForm(forms.ModelForm):
+    class Meta:
+        model = Contract
+        fields = ['contract_no', 'contract_type', 'related_object', 'sign_date', 'expire_date', 'amount', 'payment_method', 'remark']
+        widgets = {
+            'contract_no': forms.TextInput(attrs={'class': 'form-control'}),
+            'contract_type': forms.Select(attrs={'class': 'form-select'}),
+            'related_object': forms.TextInput(attrs={'class': 'form-control'}),
+            'sign_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'expire_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'payment_method': forms.Select(attrs={'class': 'form-select'}),
+            'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class ContractAttachmentForm(forms.ModelForm):
+    class Meta:
+        model = ContractAttachment
+        fields = ['file']
+        widgets = {
+            'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
         }

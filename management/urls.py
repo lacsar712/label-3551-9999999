@@ -47,4 +47,13 @@ urlpatterns = [
     path('fee/add/', views.FeeCreateView.as_view(), name='fee_add'),
     path('fee/<int:pk>/process/', views.FeeUpdateView.as_view(), name='fee_process'),
     path('fee/<int:pk>/delete/', views.FeeDeleteView.as_view(), name='fee_delete'),
+
+    # 合同管理
+    path('contract/', views.ContractListView.as_view(), name='contract_list'),
+    path('contract/add/', views.ContractCreateView.as_view(), name='contract_add'),
+    path('contract/<int:pk>/edit/', views.ContractUpdateView.as_view(), name='contract_edit'),
+    path('contract/<int:pk>/delete/', views.ContractDeleteView.as_view(), name='contract_delete'),
+    path('contract/<int:pk>/', views.ContractDetailView.as_view(), name='contract_detail'),
+    path('contract/attachment/<int:pk>/download/', views.ContractAttachmentDownloadView.as_view(), name='contract_attachment_download'),
+    path('contract/attachment/<int:pk>/delete/', views.ContractAttachmentDeleteView.as_view(), name='contract_attachment_delete'),
 ]

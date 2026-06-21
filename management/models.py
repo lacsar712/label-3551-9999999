@@ -134,3 +134,65 @@ class Fee(models.Model):
 
     def __str__(self):
         return f"{self.unit} - {self.get_fee_type_display()} - {self.amount}元"
+
+
+class Contract(models.Model):
+    TYPE_CHOICES = (
+        ('owner_service', '业主服务'),
+        ('supplier_purchase', '供应商采购'),
+        ('outsourcing_maintenance', '外包维保'),
+    )
+    PAYMENT_METHODS = (
+        ('one_time', '一次性付款'),
+        ('installment', '分期付款'),
+        ('annual', '年付'),
+        ('quarterly', '季付'),
+        ('monthly', '月付'),
+        ('other', '其他'),
+    )
+
+    contract_no = models.CharField("合同编号", max_length=50, unique=True)
+    contract_type = models.CharField("合同类型", max_length=30, choices=TYPE_CHOICES)
+    related_object = models.CharField("关联对象", max_length=200)
+    sign_date = models.DateField("签约日期")
+    expire_date = models.DateField("到期日期")
+    amount = models.DecimalField("合同金额", max_digits=12, decimal_places=2)
+    payment_method = models.CharField("付款方式", max_length=20, choices=PAYMENT_METHODS)
+    remark = models.TextField("备注", blank=True, null=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "物业合同"
+        verbose_name_plural = "合同管理"
+        ordering = ['expire_date']
+
+    def __str__(self):
+        return f"{self.contract_no} - {self.get_contract_type_display()}"
+
+    def is_expiring_soon(self, days=60):
+        from datetime import date
+        return 0 <= (self.expire_date - date.today()).days <= days
+
+    def days_until_expire(self):
+        from datetime import date
+        return (self.expire_date - date.today()).days
+
+
+class ContractAttachment(models.Model):
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, verbose_name="所属合同", related_name="attachments")
+    file = models.FileField("附件文件", upload_to="contract_attachments/%Y/%m/")
+    file_name = models.CharField("文件名", max_length=255, blank=True)
+    uploaded_at = models.DateTimeField("上传时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "合同附件"
+        verbose_name_plural = "合同附件"
+
+    def __str__(self):
+        return self.file_name or self.file.name
+
+    def save(self, *args, **kwargs):
+        if not self.file_name and self.file:
+            self.file_name = self.file.name
+        super().save(*args, **kwargs)

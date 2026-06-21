@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}合同详情 - {{ contract.contract_no }} - 智慧物业平台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">合同详情</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'contract_list' %}" class="btn btn-sm btn-outline-secondary">返回列表</a>
+        <a href="{% url 'contract_edit' contract.id %}" class="btn btn-sm btn-primary ms-2">编辑合同</a>
+        <a href="{% url 'contract_delete' contract.id %}" class="btn btn-sm btn-danger ms-2">删除合同</a>
+    </div>
+</div>
+
+{% if contract.days_left < 0 %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <strong>注意：</strong>该合同已过期 {{ contract.days_left_str }} 天！
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% elif contract.expiring_soon %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <strong>提醒：</strong>该合同将在 {{ contract.days_left }} 天后到期，请及时处理！
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">基本信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">合同编号</label>
+                        <p class="fw-bold mb-0">{{ contract.contract_no }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">合同类型</label>
+                        <p class="mb-0">
+                            {% if contract.contract_type == 'owner_service' %}
+                            <span class="badge bg-primary">业主服务</span>
+                            {% elif contract.contract_type == 'supplier_purchase' %}
+                            <span class="badge bg-info text-dark">供应商采购</span>
+                            {% else %}
+                            <span class="badge bg-secondary">外包维保</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">关联对象</label>
+                        <p class="mb-0">{{ contract.related_object }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">合同金额</label>
+                        <p class="mb-0 text-primary fw-bold">¥{{ contract.amount }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">签约日期</label>
+                        <p class="mb-0">{{ contract.sign_date|date:"Y-m-d" }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">到期日期</label>
+                        <p class="mb-0">
+                            {{ contract.expire_date|date:"Y-m-d" }}
+                            {% if contract.days_left < 0 %}
+                            <span class="badge bg-danger ms-1">已过期</span>
+                            {% elif contract.expiring_soon %}
+                            <span class="badge bg-warning text-dark ms-1">即将到期</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">付款方式</label>
+                        <p class="mb-0">{{ contract.get_payment_method_display }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-muted small">剩余天数</label>
+                        <p class="mb-0">
+                            {% if contract.days_left < 0 %}
+                            <span class="text-danger">已过期 {{ contract.days_left_str }} 天</span>
+                            {% else %}
+                            <span class="{% if contract.expiring_soon %}text-warning fw-bold{% endif %}">{{ contract.days_left }} 天</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label text-muted small">备注</label>
+                        <p class="mb-0">{{ contract.remark|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">合同附件</h5>
+                <span class="badge bg-secondary">{{ contract.attachments.count }} 份</span>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="mb-3">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                        <label for="{{ attachment_form.file.id_for_label }}" class="form-label small">上传 PDF 附件</label>
+                        {{ attachment_form.file }}
+                        {% for error in attachment_form.file.errors %}
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary w-100">上传附件</button>
+                </form>
+
+                <hr>
+
+                {% if contract.attachments.all %}
+                <div class="list-group list-group-flush">
+                    {% for attachment in contract.attachments.all %}
+                    <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1 me-2">
+                            <small class="text-muted d-block">{{ attachment.uploaded_at|date:"Y-m-d H:i" }}</small>
+                            <span class="fw-bold">{{ attachment.file_name }}</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'contract_attachment_download' attachment.id %}" class="btn btn-sm btn-outline-primary" title="下载">
+                                下载
+                            </a>
+                            <form method="post" action="{% url 'contract_attachment_delete' attachment.id %}" class="d-inline" onsubmit="return confirm('确定要删除该附件吗？');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-2 mb-0">暂无附件</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">系统信息</h5>
+            </div>
+            <div class="card-body small">
+                <p class="mb-2"><span class="text-muted">创建时间：</span>{{ contract.created_at|date:"Y-m-d H:i" }}</p>
+                <p class="mb-0"><span class="text-muted">更新时间：</span>{{ contract.updated_at|date:"Y-m-d H:i" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

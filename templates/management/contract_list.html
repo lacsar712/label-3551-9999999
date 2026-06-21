@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}合同管理 - 智慧物业平台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .expiring-row {
+        background-color: #fff3cd !important;
+    }
+    .expiring-row:hover {
+        background-color: #ffe69c !important;
+    }
+    .expired-row {
+        background-color: #f8d7da !important;
+    }
+    .expired-row:hover {
+        background-color: #f1aeb5 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">合同管理</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'contract_add' %}" class="btn btn-sm btn-primary">新增合同</a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">合同类型</label>
+                <select name="contract_type" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, value in contract_types %}
+                    <option value="{{ key }}" {% if request.GET.contract_type == key %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">筛选</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'contract_list' %}" class="btn btn-outline-secondary w-100">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-body d-flex gap-4 flex-wrap">
+        <div class="d-flex align-items-center">
+            <span class="badge bg-warning text-dark me-2">提醒</span>
+            <span class="text-muted small">60天内到期</span>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="badge bg-danger me-2">过期</span>
+            <span class="text-muted small">已过期合同</span>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>合同编号</th>
+                        <th>合同类型</th>
+                        <th>关联对象</th>
+                        <th>签约日期</th>
+                        <th>到期日期</th>
+                        <th>剩余天数</th>
+                        <th>合同金额</th>
+                        <th>付款方式</th>
+                        <th>附件</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contract in contracts %}
+                    <tr class="{% if contract.days_left < 0 %}expired-row{% elif contract.expiring_soon %}expiring-row{% endif %}">
+                        <td>
+                            <a href="{% url 'contract_detail' contract.id %}" class="text-decoration-none fw-bold">{{ contract.contract_no }}</a>
+                        </td>
+                        <td>
+                            {% if contract.contract_type == 'owner_service' %}
+                            <span class="badge bg-primary">业主服务</span>
+                            {% elif contract.contract_type == 'supplier_purchase' %}
+                            <span class="badge bg-info text-dark">供应商采购</span>
+                            {% else %}
+                            <span class="badge bg-secondary">外包维保</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ contract.related_object }}</td>
+                        <td>{{ contract.sign_date|date:"Y-m-d" }}</td>
+                        <td>
+                            {{ contract.expire_date|date:"Y-m-d" }}
+                            {% if contract.days_left < 0 %}
+                            <span class="badge bg-danger ms-1">已过期</span>
+                            {% elif contract.expiring_soon %}
+                            <span class="badge bg-warning text-dark ms-1">即将到期</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if contract.days_left < 0 %}
+                            <span class="text-danger">已过期 {{ contract.days_left_str }} 天</span>
+                            {% else %}
+                            <span class="{% if contract.expiring_soon %}text-warning fw-bold{% endif %}">{{ contract.days_left }} 天</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-primary fw-bold">¥{{ contract.amount }}</td>
+                        <td>{{ contract.get_payment_method_display }}</td>
+                        <td>
+                            {% if contract.attachments.count > 0 %}
+                            <span class="badge bg-success">{{ contract.attachments.count }} 份</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'contract_detail' contract.id %}" class="btn btn-sm btn-outline-info">详情</a>
+                            <a href="{% url 'contract_edit' contract.id %}" class="btn btn-sm btn-outline-primary">编辑</a>
+                            <a href="{% url 'contract_delete' contract.id %}" class="btn btn-sm btn-outline-danger">删除</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4 text-muted">当前没有合同记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

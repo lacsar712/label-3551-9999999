@@ -62,4 +62,13 @@ urlpatterns = [
     path('supplier/add/', views.SupplierCreateView.as_view(), name='supplier_add'),
     path('supplier/<int:pk>/edit/', views.SupplierUpdateView.as_view(), name='supplier_edit'),
     path('supplier/<int:pk>/delete/', views.SupplierDeleteView.as_view(), name='supplier_delete'),
+
+    # 绿化养护管理
+    path('greening/', views.GreeningMaintenanceListView.as_view(), name='greening_maintenance_list'),
+    path('greening/add/', views.GreeningMaintenanceCreateView.as_view(), name='greening_maintenance_add'),
+    path('greening/<int:pk>/edit/', views.GreeningMaintenanceUpdateView.as_view(), name='greening_maintenance_edit'),
+    path('greening/<int:pk>/delete/', views.GreeningMaintenanceDeleteView.as_view(), name='greening_maintenance_delete'),
+
+    # 业主端 - 社区动态
+    path('community-news/', views.CommunityNewsView.as_view(), name='community_news'),
 ]

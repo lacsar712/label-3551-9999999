@@ -1,5 +1,5 @@
 from django import forms
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance
 
 class OwnerForm(forms.ModelForm):
     class Meta:
@@ -135,4 +135,18 @@ class SupplierForm(forms.ModelForm):
             'cooperation_status': forms.Select(attrs={'class': 'form-select'}),
             'address': forms.TextInput(attrs={'class': 'form-control'}),
             'remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class GreeningMaintenanceForm(forms.ModelForm):
+    class Meta:
+        model = GreeningMaintenance
+        fields = ['estate', 'maintenance_type', 'work_date', 'worker', 'materials', 'description']
+        widgets = {
+            'estate': forms.Select(attrs={'class': 'form-select'}),
+            'maintenance_type': forms.Select(attrs={'class': 'form-select'}),
+            'work_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'worker': forms.TextInput(attrs={'class': 'form-control'}),
+            'materials': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': '请输入所用物料，如：复合肥5kg、杀虫剂3瓶等'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': '请输入作业描述'}),
         }

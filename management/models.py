@@ -232,3 +232,29 @@ class ContractAttachment(models.Model):
         if not self.file_name and self.file:
             self.file_name = self.file.name
         super().save(*args, **kwargs)
+
+
+class GreeningMaintenance(models.Model):
+    TYPE_CHOICES = (
+        ('pruning', '修剪'),
+        ('fertilizing', '施肥'),
+        ('pest_control', '除虫'),
+        ('replanting', '补植'),
+    )
+
+    estate = models.ForeignKey(Estate, on_delete=models.CASCADE, verbose_name="养护区域", related_name="greening_maintenances")
+    maintenance_type = models.CharField("养护类型", max_length=20, choices=TYPE_CHOICES)
+    work_date = models.DateField("作业日期")
+    worker = models.CharField("作业人员", max_length=100)
+    materials = models.TextField("所用物料", blank=True, null=True)
+    description = models.TextField("作业描述", blank=True, null=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "绿化养护记录"
+        verbose_name_plural = "绿化养护管理"
+        ordering = ['-work_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.estate.name} - {self.get_maintenance_type_display()} - {self.work_date}"

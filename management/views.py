@@ -5,8 +5,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, DetailView, View
 from django.contrib import messages
 from datetime import date, timedelta
-from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier
-from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm
+from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance
+from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -36,6 +36,11 @@ class IndexView(LoginRequiredMixin, TemplateView):
             context['pending_repairs'] = Repair.objects.filter(status='pending').count()
             context['unpaid_fees'] = Fee.objects.filter(status='unpaid').count()
             today = date.today()
+            first_day_of_month = today.replace(day=1)
+            context['monthly_greening_count'] = GreeningMaintenance.objects.filter(
+                work_date__gte=first_day_of_month,
+                work_date__lte=today
+            ).count()
             sixty_days_later = today + timedelta(days=60)
             expiring_contracts = Contract.objects.filter(expire_date__gte=today, expire_date__lte=sixty_days_later).order_by('expire_date')
             context['expiring_contracts_count'] = expiring_contracts.count()
@@ -557,3 +562,86 @@ class SupplierDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, "供应商删除成功！")
         return super().delete(request, *args, **kwargs)
+
+
+# --- 绿化养护管理 ---
+class GreeningMaintenanceListView(LoginRequiredMixin, StaffRequiredMixin, ListView):
+    model = GreeningMaintenance
+    template_name = 'management/greening_maintenance_list.html'
+    context_object_name = 'maintenances'
+
+    def get_queryset(self):
+        qs = GreeningMaintenance.objects.all()
+        estate_id = self.request.GET.get('estate')
+        date_start = self.request.GET.get('date_start')
+        date_end = self.request.GET.get('date_end')
+        if estate_id:
+            qs = qs.filter(estate_id=estate_id)
+        if date_start:
+            qs = qs.filter(work_date__gte=date_start)
+        if date_end:
+            qs = qs.filter(work_date__lte=date_end)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['estates'] = Estate.objects.all()
+        context['current_estate'] = self.request.GET.get('estate', '')
+        context['date_start'] = self.request.GET.get('date_start', '')
+        context['date_end'] = self.request.GET.get('date_end', '')
+        return context
+
+
+class GreeningMaintenanceCreateView(LoginRequiredMixin, StaffRequiredMixin, CreateView):
+    model = GreeningMaintenance
+    form_class = GreeningMaintenanceForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('greening_maintenance_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "绿化养护记录创建成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "录入绿化养护记录"
+        return context
+
+
+class GreeningMaintenanceUpdateView(LoginRequiredMixin, StaffRequiredMixin, UpdateView):
+    model = GreeningMaintenance
+    form_class = GreeningMaintenanceForm
+    template_name = 'management/form.html'
+    success_url = reverse_lazy('greening_maintenance_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "绿化养护记录更新成功！")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = "编辑绿化养护记录"
+        return context
+
+
+class GreeningMaintenanceDeleteView(LoginRequiredMixin, StaffRequiredMixin, DeleteView):
+    model = GreeningMaintenance
+    template_name = 'management/confirm_delete.html'
+    success_url = reverse_lazy('greening_maintenance_list')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "绿化养护记录删除成功！")
+        return super().delete(request, *args, **kwargs)
+
+
+# --- 业主端 - 社区动态 ---
+class CommunityNewsView(LoginRequiredMixin, ListView):
+    model = GreeningMaintenance
+    template_name = 'management/community_news.html'
+    context_object_name = 'maintenances'
+
+    def get_queryset(self):
+        thirty_days_ago = date.today() - timedelta(days=30)
+        return GreeningMaintenance.objects.filter(
+            work_date__gte=thirty_days_ago
+        ).order_by('-work_date', '-created_at')

@@ -68,11 +68,17 @@
                         class="{% if 'repair' in request.resolver_match.url_name %}active{% endif %}">报修管理</a>
                     <a href="{% url 'fee_list' %}"
                         class="{% if 'fee' in request.resolver_match.url_name %}active{% endif %}">费用中心</a>
+                    {% if request.user.role == 'owner' %}
+                    <a href="{% url 'community_news' %}"
+                        class="{% if 'community_news' in request.resolver_match.url_name %}active{% endif %}">社区动态</a>
+                    {% endif %}
                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'contract_list' %}"
                         class="{% if 'contract' in request.resolver_match.url_name %}active{% endif %}">合同管理</a>
                     <a href="{% url 'supplier_list' %}"
                         class="{% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">供应商管理</a>
+                    <a href="{% url 'greening_maintenance_list' %}"
+                        class="{% if 'greening' in request.resolver_match.url_name %}active{% endif %}">绿化养护</a>
                     {% endif %}
 
                     <hr class="text-white">

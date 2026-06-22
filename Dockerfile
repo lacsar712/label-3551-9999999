@@ -1,9 +1,22 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS builder
+
 WORKDIR /app
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-COPY . .
-# 运行环境设置
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV LANG=C.UTF-8
+
+COPY . .
+
 EXPOSE 8000

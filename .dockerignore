@@ -33,6 +33,9 @@ media/
 .DS_Store
 Thumbs.db
 
+# pip-tools 源文件（编译产物 requirements.txt 已包含锁定版本）
+requirements.in
+
 # 内部开发/测评文档
 trae/
 AI测评Prompt集.md

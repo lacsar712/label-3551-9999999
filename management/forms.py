@@ -51,6 +51,12 @@ class UnitForm(forms.ModelForm):
         }
 
 class RepairStaffForm(forms.ModelForm):
+    VALID_TRANSITIONS = {
+        'pending': ['processing'],
+        'processing': ['completed'],
+        'completed': [],
+    }
+
     class Meta:
         model = Repair
         fields = ['status', 'processor', 'supplier', 'feedback']
@@ -65,6 +71,20 @@ class RepairStaffForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['supplier'].queryset = Supplier.objects.filter(cooperation_status='active')
         self.fields['supplier'].empty_label = "请选择委外供应商（可选）"
+
+    def clean_status(self):
+        new_status = self.cleaned_data.get('status')
+        if self.instance and self.instance.pk:
+            old_status = self.instance.status
+            if new_status != old_status:
+                allowed_next = self.VALID_TRANSITIONS.get(old_status, [])
+                if new_status not in allowed_next:
+                    from django.core.exceptions import ValidationError
+                    if old_status == 'completed':
+                        raise ValidationError("已完成的工单不可回退状态。")
+                    else:
+                        raise ValidationError(f"不允许从「{self.instance.get_status_display()}」直接变更为「{dict(Repair.STATUS_CHOICES)[new_status]}」。")
+        return new_status
 
 class RepairOwnerForm(forms.ModelForm):
     class Meta:

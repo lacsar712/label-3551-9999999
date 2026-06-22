@@ -7,6 +7,7 @@ from django.contrib import messages
 from datetime import date, timedelta, datetime
 from .models import User, Estate, Building, Floor, Unit, Repair, Fee, Contract, ContractAttachment, Supplier, GreeningMaintenance, SafetyInspection, SafetyInspectionTrack, Vote, VoteOption, VoteBallot, VoteRecord, LostItem, ClaimApplication, TemporaryParkingApplication, TemporaryParkingPermit, NeighborhoodHelpPost, NeighborhoodHelpReply, EmergencyContact, DeliveryOrder, DeliveryInspectionItem
 from .forms import EstateForm, BuildingForm, FloorForm, UnitForm, OwnerForm, RepairOwnerForm, RepairStaffForm, FeeForm, ContractForm, ContractAttachmentForm, SupplierForm, GreeningMaintenanceForm, SafetyInspectionCreateForm, SafetyInspectionRectifyForm, SafetyInspectionUpdateForm, VoteForm, VoteOptionFormSet, LostItemForm, ClaimApplicationForm, ClaimConfirmForm, TemporaryParkingApplicationForm, TemporaryParkingReviewForm, NeighborhoodHelpPostForm, NeighborhoodHelpReplyForm, EmergencyContactForm, DeliveryOrderCreateForm, DeliveryInspectionItemFormSet, DeliveryInspectionItemOwnerForm
+from .services import get_staff_dashboard_context, get_owner_dashboard_context
 import csv
 from django.http import HttpResponse, FileResponse
 import os
@@ -24,53 +25,16 @@ class CustomLoginView(LoginView):
 class StaffRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.role in ['admin', 'staff']
-        
+
 class IndexView(LoginRequiredMixin, TemplateView):
     template_name = 'management/index.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.user.role in ['admin', 'staff']:
-            context['estate_count'] = Estate.objects.count()
-            context['owner_count'] = User.objects.filter(role='owner').count()
-            context['pending_repairs'] = Repair.objects.filter(status='pending').count()
-            context['unpaid_fees'] = Fee.objects.filter(status='unpaid').count()
-            today = date.today()
-            first_day_of_month = today.replace(day=1)
-            context['monthly_greening_count'] = GreeningMaintenance.objects.filter(
-                work_date__gte=first_day_of_month,
-                work_date__lte=today
-            ).count()
-            sixty_days_later = today + timedelta(days=60)
-            expiring_contracts = Contract.objects.filter(expire_date__gte=today, expire_date__lte=sixty_days_later).order_by('expire_date')
-            context['expiring_contracts_count'] = expiring_contracts.count()
-            context['expiring_contracts'] = expiring_contracts[:5]
-            context['expiring_contracts_total_amount'] = sum(c.amount for c in expiring_contracts)
-            
-            high_risk_open = SafetyInspection.objects.filter(risk_level='high', status='open').order_by('rectification_deadline')
-            context['high_risk_open_count'] = high_risk_open.count()
-            context['high_risk_open'] = high_risk_open[:10]
-            for h in high_risk_open:
-                h.overdue_flag = h.is_overdue()
-                h.days_left = h.days_until_deadline()
-            context['medium_risk_open_count'] = SafetyInspection.objects.filter(risk_level='medium', status='open').count()
-            context['low_risk_open_count'] = SafetyInspection.objects.filter(risk_level='low', status='open').count()
-            context['pending_lost_items_count'] = LostItem.objects.filter(status='pending').count()
-            context['pending_claims_count'] = ClaimApplication.objects.filter(status='pending').count()
-
-            rectifying_orders = DeliveryOrder.objects.filter(status='rectifying').select_related('unit', 'unit__floor', 'unit__floor__building', 'unit__floor__building__estate')
-            context['rectifying_delivery_count'] = rectifying_orders.count()
-            context['rectifying_delivery_orders'] = rectifying_orders[:10]
-            context['pending_delivery_count'] = DeliveryOrder.objects.filter(status='pending').count()
-            context['inspecting_delivery_count'] = DeliveryOrder.objects.filter(status='inspecting').count()
-            context['delivered_count'] = DeliveryOrder.objects.filter(status='delivered').count()
+            context.update(get_staff_dashboard_context())
         else:
-            context['my_units'] = Unit.objects.filter(owner=self.request.user)
-            context['my_repairs'] = Repair.objects.filter(owner=self.request.user).order_by('-submit_time')[:5]
-            context['unpaid_fees'] = Fee.objects.filter(unit__owner=self.request.user, status='unpaid')
-            context['active_unvoted'] = Vote.objects.filter(status='active').exclude(voter_records__voter=self.request.user)
-            context['pending_lost_items'] = LostItem.objects.filter(status='pending').order_by('-found_date')[:5]
-            context['my_delivery_orders'] = DeliveryOrder.objects.filter(unit__owner=self.request.user).order_by('-created_at')
+            context.update(get_owner_dashboard_context(self.request.user))
         return context
 
 # --- 楼盘管理 ---
